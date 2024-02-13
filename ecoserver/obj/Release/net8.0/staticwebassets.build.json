@@ -1,0 +1,77 @@
+{
+  "Version": 1,
+  "Hash": "Cc50mTbTXZFzXMbsG+wPbmjXIVJ0fokfRAdw+c5ORFw=",
+  "Source": "ecoserver",
+  "BasePath": "_content/ecoserver",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "ecoserver\\wwwroot",
+      "Source": "ecoserver",
+      "ContentRoot": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\",
+      "BasePath": "_content/ecoserver",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\localhost.pem",
+      "SourceId": "ecoserver",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\",
+      "BasePath": "_content/ecoserver",
+      "RelativePath": "cert/localhost.pem",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\cert\\localhost.pem"
+    },
+    {
+      "Identity": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\private_key.pfx",
+      "SourceId": "ecoserver",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\",
+      "BasePath": "_content/ecoserver",
+      "RelativePath": "cert/private_key.pfx",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\cert\\private_key.pfx"
+    },
+    {
+      "Identity": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",
+      "SourceId": "ecoserver",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\",
+      "BasePath": "_content/ecoserver",
+      "RelativePath": "index.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\index.html"
+    }
+  ]
+}

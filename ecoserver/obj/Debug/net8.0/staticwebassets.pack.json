@@ -1,0 +1,37 @@
+{
+  "Files": [
+    {
+      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\localhost.pem",
+      "PackagePath": "staticwebassets\\cert\\localhost.pem"
+    },
+    {
+      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\private_key.pfx",
+      "PackagePath": "staticwebassets\\cert\\private_key.pfx"
+    },
+    {
+      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\server.pfx",
+      "PackagePath": "staticwebassets\\cert\\server.pfx"
+    },
+    {
+      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.ecoserver.props",
+      "PackagePath": "build\\ecoserver.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.ecoserver.props",
+      "PackagePath": "buildMultiTargeting\\ecoserver.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.ecoserver.props",
+      "PackagePath": "buildTransitive\\ecoserver.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.ecoserver.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

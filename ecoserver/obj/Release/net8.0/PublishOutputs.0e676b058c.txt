@@ -1,0 +1,15 @@
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\ecoserver.exe
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\appsettings.Development.json
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\appsettings.json
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\ecoserver.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\ecoserver.deps.json
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\ecoserver.runtimeconfig.json
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\ecoserver.pdb
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\IdentityModel.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Microsoft.AspNetCore.OpenApi.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Microsoft.OpenApi.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\MySqlConnector.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Newtonsoft.Json.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Release\net8.0\publish\Swashbuckle.AspNetCore.SwaggerUI.dll
