@@ -32,10 +32,10 @@ namespace webapi
         public VideoTcpListener(int port = 5055)
         {
             _httpListener = new HttpListener();
-            _httpListener.Prefixes.Add("http://localhost:5055/"); 
+            _httpListener.Prefixes.Add("http://*:5055/"); 
             _tcpListener = new TcpListener(IPAddress.Any, 5057);
 
-
+            Debug.WriteLine("process initiated or at least called");
             jetsonThread = new Thread(new ThreadStart(ListenJetson));
             clientThread = new Thread(new ThreadStart(ListenForClients));
             
@@ -178,7 +178,6 @@ namespace webapi
                 int bytesRead = -1;
                 byte[] buffer = new byte[16384];
             
-                
                 while ((bytesRead = await jetson_server.networkStream.ReadAsync(buffer)) > 0)
                 {
 
@@ -223,7 +222,7 @@ namespace webapi
         {
             if (video_listener._websocket != null && video_listener._websocket.State == WebSocketState.Open)
             {
-                
+                Debug.WriteLine("called");
                 byte[] buffer = new byte[16384];
                 int isHandshake = -1;
                 string receivedMessage = string.Empty;
@@ -344,12 +343,13 @@ namespace webapi
             {
                 // Accept a new client connection
                 //Socket sock_et = tcpListener.AcceptSocket();
+                Debug.WriteLine("accept ready here");
                 HttpListenerContext _client_context = await _httpListener.GetContextAsync();
-                
+                Debug.WriteLine("accepted");
                 Task single_client_task = Task.Factory.StartNew(async () =>
                     {
                         HttpListenerWebSocketContext websocket_context = await _client_context.AcceptWebSocketAsync(null);
-                        
+                        Debug.WriteLine("it is client here");
 
                         if (websocket_context.IsSecureConnection)
                         {

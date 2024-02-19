@@ -9,6 +9,10 @@
       "PackagePath": "staticwebassets\\cert\\private_key.pfx"
     },
     {
+      "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\server.pfx",
+      "PackagePath": "staticwebassets\\cert\\server.pfx"
+    },
+    {
       "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",
       "PackagePath": "staticwebassets\\index.html"
     },

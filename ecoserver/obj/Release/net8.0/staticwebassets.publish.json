@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "uMBrCVrZrT8rbTonQkZK89xEMn9/jRYOfEiFZwnQYeQ=",
+  "Hash": "ov5HWZDvNDoB7z14uFu/DUZiyEu1oZ4nKcBEKQEHxjQ=",
   "Source": "ecoserver",
   "BasePath": "_content/ecoserver",
   "Mode": "Default",
@@ -53,6 +53,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\cert\\private_key.pfx"
+    },
+    {
+      "Identity": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\server.pfx",
+      "SourceId": "ecoserver",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\",
+      "BasePath": "_content/ecoserver",
+      "RelativePath": "cert/server.pfx",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\cert\\server.pfx"
     },
     {
       "Identity": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",

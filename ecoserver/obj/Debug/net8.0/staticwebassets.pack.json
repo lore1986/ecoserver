@@ -1,19 +1,19 @@
 {
   "Files": [
     {
-      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\localhost.pem",
+      "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\localhost.pem",
       "PackagePath": "staticwebassets\\cert\\localhost.pem"
     },
     {
-      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\private_key.pfx",
+      "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\private_key.pfx",
       "PackagePath": "staticwebassets\\cert\\private_key.pfx"
     },
     {
-      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\server.pfx",
+      "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\cert\\server.pfx",
       "PackagePath": "staticwebassets\\cert\\server.pfx"
     },
     {
-      "Id": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",
+      "Id": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\wwwroot\\index.html",
       "PackagePath": "staticwebassets\\index.html"
     },
     {

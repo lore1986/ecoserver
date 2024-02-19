@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj": {}
+    "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj": {}
   },
   "projects": {
-    "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj": {
+    "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj",
+        "projectUniqueName": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj",
         "projectName": "ecoserver",
-        "projectPath": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj",
+        "projectPath": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\ecoserver.csproj",
         "packagesPath": "C:\\Users\\tecni\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\obj\\",
+        "outputPath": "C:\\Users\\tecni\\Documents\\Testing_ground\\webapi\\ecoserver\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\tecni\\AppData\\Roaming\\NuGet\\NuGet.Config",

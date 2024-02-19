@@ -22,6 +22,8 @@ using System.Numerics;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.UseUrls("http://localhost:5001");
+
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -31,40 +33,17 @@ builder.Services.AddControllers();
 builder.Services.AddSingleton<VideoSocketSingleton>();
 
 
-
-
-// var certPem = File.ReadAllText("/etc/letsencrypt/live/fasito.net/cert.pem");
-// var keyPem = File.ReadAllText("/etc/letsencrypt/live/fasito.net/privkey.pem");
-// var x509 = X509Certificate2.CreateFromPem(certPem, keyPem);
-
-
-//builder.Services.AddSingleton<EventBus>();
-
-//builder.Services.AddScoped<ITeensySocketMessageBus, TeensySocketMessageBus>(); 
-
-//builder.Services.AddTransient<IDatabaseService, DatabaseService>();
-
-//builder.Services.AddSingleton<IBusEvent, BusEvents>();
 builder.Services.AddSingleton<ISocketTeensyService, SocketTeensyService>();
 builder.Services.AddScoped<IMiddlewareHandler,MiddlewareHandler> ();
 builder.Services.AddSingleton<IVideoSocketSingleton, VideoSocketSingleton>();
 
-//builder.Services.AddScoped<ITeensyMessageConstructParser, TeensyMessageConstructParser>();
-
-//builder.Services.AddSingleton<TeensyBackgroundService>();
-
-
-//builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("DatabaseConnectionString")!);
-
 var app = builder.Build();
 
 
-/*TeensyBackgroundService tserv = app.Services.GetRequiredService<TeensyBackgroundService>();
-*/
-// app.UseForwardedHeaders(new ForwardedHeadersOptions
-// {
-//     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-// });
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -80,13 +59,16 @@ var webSocketOptions = new WebSocketOptions
 //     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 // });
 
+Debug.WriteLine("im just before websockets");
+
+
 app.UseWebSockets(webSocketOptions);
 app.UseWebSocketCustomMiddleware();
 
 app.UseRouting();
 app.MapControllers();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors((options) =>

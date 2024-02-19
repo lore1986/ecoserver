@@ -35,3 +35,4 @@ c:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\obj\Debug\net8.0\ecoser
 c:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\obj\Debug\net8.0\ecoserver.genruntimeconfig.cache
 c:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\obj\Debug\net8.0\ref\ecoserver.dll
 c:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\bin\Debug\net8.0\ecoserver.staticwebassets.runtime.json
+c:\Users\tecni\Documents\Testing_ground\webapi\ecoserver\obj\Debug\net8.0\ecoserver.sourcelink.json
