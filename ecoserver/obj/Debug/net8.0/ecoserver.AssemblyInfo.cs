@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ecoserver")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3558ceaa3644fe239f2f0d2a0b5ec0b81ec83f9f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0ffc2535e0eb8916f4f4ec9dd5e96f43eb8119b2")]
 [assembly: System.Reflection.AssemblyProductAttribute("ecoserver")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ecoserver")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

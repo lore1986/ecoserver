@@ -1,0 +1,95 @@
+        #region crazy_stuff
+        private string ProcessSocketMessage(byte[] data_buff_array)
+        {
+
+            byte opcode = (byte)(data_buff_array[0] & 0x0F);
+            /* 
+             * Opcode: 4 bits
+             * Defines the interpretation of the "Payload data".If an unknown
+             * opcode is received, the receiving endpoint MUST _Fail the WebSocket Connection_.  
+             * The following values are defined.
+             * % x0 denotes a continuation 
+             * % x1 denotes a text 
+             * % x2 denotes a binary 
+             * % x3 - 7 are reserved for further non-control frames
+             * % x8 denotes a connection 
+             * % x9 denotes a 
+             * % xA denotes a 
+             * % xB - F are reserved for further control frames
+            */
+            //
+            byte[] maskingKey = new byte[4];
+
+            /*        byte[] data_buff_array = new byte[bytesRead];
+                    Array.Copy(buffer, 0, data_buff_array, 0, bytesRead);*/
+            string stringmessage = string.Empty;
+            switch (opcode)
+            {
+                case 0x0:
+                    Debug.WriteLine("Continuation frame");
+                    break;
+                case 0x1:
+                    Debug.WriteLine("Text Frame");
+                    {
+
+                        int payloadLength = data_buff_array[1] & 0x7F;
+                        int index_buffer = 2;
+
+
+                        // If the payload length is 126, the next 2 bytes represent the actual payload length
+                        if (payloadLength == 126)
+                        {
+                            payloadLength = BitConverter.ToUInt16([data_buff_array[2], data_buff_array[3]], 0);
+                            index_buffer = 4;
+                        }
+                        // If the payload length is 127, the next 8 bytes represent the actual payload length
+                        else if (payloadLength == 127)
+                        {
+                            payloadLength = (int)BitConverter.ToUInt64([data_buff_array[2], data_buff_array[3], data_buff_array[4], data_buff_array[5], data_buff_array[6], data_buff_array[7], data_buff_array[8], data_buff_array[9]], 0);
+                            index_buffer = 10;
+                        }
+
+                        // Extract the mask (if masking is applied)
+                        bool isMasked = false;
+                        isMasked = (data_buff_array[1] & 0x80) == 0x80;
+
+                        if (isMasked)
+                        {
+                            Array.Copy(data_buff_array, index_buffer, maskingKey, 0, 4);
+                            index_buffer += 4;
+                        }
+
+                        // Extract the payload data
+                        byte[] payload = new byte[data_buff_array.Length - index_buffer];
+                        //Array.Copy(buffer, index_buffer + 1, payload, 0, payloadLength);
+                        int index_payload = 0;
+                        for (int i = index_buffer; i < data_buff_array.Length; i++)
+                        {
+                            payload[index_payload] = (byte)(data_buff_array[i] ^ maskingKey[index_payload % 4]);
+                            index_payload++;
+                        }
+
+                        // Convert the payload to a string
+                        stringmessage = Encoding.UTF8.GetString(payload);
+                        Debug.WriteLine(stringmessage);
+                    }
+                    break;
+                    case 0x2:
+                        Debug.WriteLine("Binary Message");
+                        break;
+                    case 0x8:
+                        Debug.WriteLine("This is a connection");
+                        break;
+                    case 0x9:
+                        Debug.WriteLine("This is a ping or a pong");
+                        break;
+                    case 0x3:
+                    case 0xB:
+                    case 0xF:
+                        Debug.WriteLine("Reserved control frame");
+                        break;
+            }
+            
+            return stringmessage;
+        }
+        #endregion

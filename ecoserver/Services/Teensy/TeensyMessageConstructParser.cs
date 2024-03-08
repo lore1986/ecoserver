@@ -1,18 +1,8 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections;
 using System.Diagnostics;
-using System.IO;
-using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Xml.Linq;
-using webapi;
-using webapi;
-
 
 
 //using webapi.Controllers;
@@ -54,7 +44,7 @@ namespace webapi
 
 
 
-        public void UpdateListWayPoints(object sender, List<WayPoint> wayPoints)
+        public void UpdateListWayPoints(List<WayPoint> wayPoints)
         {
             this.wayPoints = wayPoints;
         }
@@ -67,11 +57,13 @@ namespace webapi
 
         public byte[] SeriaDataAndReturn(string idData, string data)
         {
-            TMS newTms = new TMS();
-            newTms.MessageType = idData;
-            newTms.MessageData = data;
+            TMS newTms = new TMS
+            {
+                MessageType = idData,
+                MessageData = data
+            };
 
-            string json_data = System.Text.Json.JsonSerializer.Serialize(newTms);
+            string json_data = JsonConvert.SerializeObject(newTms);
             byte[] _dataSend = Encoding.UTF8.GetBytes(json_data);
             return _dataSend;
         }
@@ -107,7 +99,7 @@ namespace webapi
         {
             if(nS == null)
             {
-                return new ChannelTeensyMessage();
+                return new ChannelTeensyMessage("empty");
             }
 
             byte[] dataread = new byte[255];
@@ -175,28 +167,24 @@ namespace webapi
                         indexByte++;
                         bufferRead[indexByte] = dataread[i];
 
-                        ChannelTeensyMessage teensyMessage =  new ChannelTeensyMessage();
-
                         if (indexByte >= message_length - 1)
                         {
                             if (cksumTest(bufferRead))
                             {
-                                teensyMessage =  await analBuff(bufferRead);
+                                ChannelTeensyMessage teensyMessage =  await analBuff(bufferRead);
+                                return teensyMessage;
                             }
                             else
                             {
                                 Debug.WriteLine("error");
                             }
                             
-                            
-                            return teensyMessage;
-
                         }
                         break;
                 }
             }
 
-            return new ChannelTeensyMessage();
+            return new ChannelTeensyMessage("empty");
         }
 
         private byte CksumCompute(byte[] buff)
@@ -266,43 +254,43 @@ namespace webapi
 
         }
 
-        private byte[]? ToBytesArray(object obj)
-        {
-            if (obj == null)
-            {
-                return null;
-            }
+//         private byte[]? ToBytesArray(object obj)
+//         {
+//             if (obj == null)
+//             {
+//                 return null;
+//             }
 
-            using (MemoryStream streamN = new MemoryStream())
-            {
-                System.Text.Json.JsonSerializer.SerializeAsync(streamN, obj, obj.GetType()).Wait();
+//             using (MemoryStream streamN = new MemoryStream())
+//             {
+//                 System.Text.Json.JsonSerializer.SerializeAsync(streamN, obj, obj.GetType()).Wait();
 
-                streamN.Position = 0;
-                long streamSize = streamN.Length;
+//                 streamN.Position = 0;
+//                 long streamSize = streamN.Length;
 
-                long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
+//                 long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
 
-                bufferSend = new byte[length_buffer];
+//                 bufferSend = new byte[length_buffer];
 
-                return streamN.ToArray();
+//                 return streamN.ToArray();
 
-               /* await JsonSerializer.SerializeAsync(streamN, obj, obj.GetType());
+//                /* await JsonSerializer.SerializeAsync(streamN, obj, obj.GetType());
 
-                // Position is not needed, as the next line already considers the current position
-                long streamSize = streamN.Length;
+//                 // Position is not needed, as the next line already considers the current position
+//                 long streamSize = streamN.Length;
 
-                long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
+//                 long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
 
-                bufferSend = new byte[length_buffer];
+//                 bufferSend = new byte[length_buffer];
 
-                byte[] buffer_temp = streamN.ToArray();
-                Buffer.BlockCopy(buffer_temp, 0, bufferSend, indexByteLoad, buffer_temp.Length);
-                indexByteLoad += buffer_temp.Length;*/
-            }
+//                 byte[] buffer_temp = streamN.ToArray();
+//                 Buffer.BlockCopy(buffer_temp, 0, bufferSend, indexByteLoad, buffer_temp.Length);
+//                 indexByteLoad += buffer_temp.Length;*/
+//             }
 
-/*            initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;*/
+// /*            initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;*/
 
-        }
+//         }
 
         private T CombinaVar<T>(byte[] bytes_convert)
         {
@@ -407,7 +395,8 @@ namespace webapi
             return startIndex + source.Length;
         }*/
 
-        private Task<ChannelTeensyMessage> analBuff(byte[] mybuffdata)
+        private Task<ChannelTeensyMessage> 
+        analBuff(byte[] mybuffdata)
         {
             TeensyMessage _teensyMessage = new TeensyMessage(mybuffdata);
 
@@ -495,7 +484,7 @@ namespace webapi
 
                                                 byte[] newCommand = SendCostructBuff(command);
 
-                                                return Task.FromResult(new ChannelTeensyMessage() { data_in = null, data_command = newCommand, NeedAnswer = true });
+                                                return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
                                             }
 
                                             if (nWP_now == wayPoints.Count)
@@ -622,8 +611,8 @@ namespace webapi
                                     }
 
                                 }*/
-
-                                return Task.FromResult(new ChannelTeensyMessage() { data_in = _dataSend, NeedPreparation = true });
+                                
+                                return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
 
                             }
 
@@ -690,7 +679,10 @@ namespace webapi
                                     byte[] newCommand = SendCostructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3]);
 
                                     
-                                    return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("MMW", json),  data_command = newCommand, NeedAnswer = true });
+                                    return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true, json));
+
+                                    //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("MMW", json),  data_command = newCommand, NeedAnswer = true });
+
 
                                     //eturn Task.FromResult(new NeedData() { taskNeedResult = true, commandData = newCommand, NeedPreparation = false});
 
@@ -713,7 +705,7 @@ namespace webapi
                                             CostructBuff(wpbyte);
                                             byte[] newCommand = SendCostructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3]);
 
-                                            return Task.FromResult(new ChannelTeensyMessage() { data_in = null, data_command = newCommand, NeedAnswer = true });
+                                            return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
 
                                         }
                                         else
@@ -721,7 +713,8 @@ namespace webapi
                                             string json = JsonConvert.SerializeObject(wayPoints, Formatting.Indented);
                                             totalWaypoints = 0;
 
-                                            return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("AllWayPoints", json), data_command = null, NeedAnswer = true });
+                                            return Task.FromResult(new ChannelTeensyMessage("AllWayPoints", null, false, json));
+                                            //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("AllWayPoints", json), data_command = null, NeedAnswer = true });
                                         }
 
                                     }
@@ -816,12 +809,18 @@ namespace webapi
                         {
                             if ((_teensyMessage.Cmd2 == cmdRW.IMU_GET_CMD2) && (_teensyMessage.Cmd3 == cmdRW.IMU_RPY_ACC_CMD3))
                             {
-                                ImuData imuData = CombinaVar<ImuData>(bufferDataOnly);
 
+                                if(bufferDataOnly.Length > 0)
+                                {
+                                    ImuData imuData = CombinaVar<ImuData>(bufferDataOnly);
+                                   
+                                    string json_data = JsonConvert.SerializeObject(imuData);
 
-                                byte[] _dataSend = SeriaDataAndReturn("ImuData", System.Text.Json.JsonSerializer.Serialize(imuData));
-
-                                return Task.FromResult(new ChannelTeensyMessage() { data_in = _dataSend, NeedPreparation = true});
+                                    //byte[] _dataSend = SeriaDataAndReturn("ImuData", System.Text.Json.JsonSerializer.Serialize(imuData));
+                                    return Task.FromResult(new ChannelTeensyMessage("ImuData", null, false, json_data));
+                                    //return Task.FromResult(new ChannelTeensyMessage() { data_in = _dataSend, NeedPreparation = false});
+                                }
+                                
 
                             }
 
@@ -994,7 +993,7 @@ namespace webapi
                 }
             }
 
-            return Task.FromResult(new ChannelTeensyMessage()); 
+            return Task.FromResult(new ChannelTeensyMessage("empty")); 
         }
 
     }

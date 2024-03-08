@@ -7,7 +7,7 @@ namespace webapi
     {
         byte[] PrepareTeensyRequest(byte[] c);
         Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream nS);
-        void UpdateListWayPoints(object sender, List<WayPoint> wayPoints);
+        void UpdateListWayPoints(List<WayPoint> wayPoints);
         
     }
 }

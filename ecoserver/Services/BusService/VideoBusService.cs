@@ -2,27 +2,34 @@
 {
     public class VideoBusService : IVideoBusService
     {
-        private readonly List<Action<VideoMessage>> _subscribers = new List<Action<VideoMessage>>();
+        private readonly List<Tuple<Action<EcodroneBoatMessage>, string>> _subscribers = new List<Tuple<Action<EcodroneBoatMessage>, string>>();
 
-        public void Subscribe(Action<VideoMessage> subscriber)
+        public void Subscribe(Action<EcodroneBoatMessage> action, string id)
         {
-            _subscribers.Add(subscriber);  
+            var userTuple = new Tuple<Action<EcodroneBoatMessage>, string>(action, id);
+            _subscribers.Add(userTuple);  
         }
 
-        public void Unsubscribe(Action<VideoMessage> unsubscriber)
+        public void Unsubscribe(Action<EcodroneBoatMessage> action, string id)
         {
-            _subscribers.Remove(unsubscriber);
+            var userTuple = new Tuple<Action<EcodroneBoatMessage>, string>(action, id);
+            _subscribers.Remove(userTuple);
         }
 
-        public void Publish(VideoMessage eventMessage)
+        public void Publish(EcodroneBoatMessage eventMessage)
         {
             foreach (var sub in _subscribers)
             {
-                if(sub != null)
+                if(sub.Item2 == eventMessage.direction)
                 {
-                    sub.Invoke(eventMessage);
+                    sub.Item1.Invoke(eventMessage);
                 }
             }
+        }
+
+        public bool IsASubscriber(string id)
+        {
+            return _subscribers.Any(x => x.Item2 == id);
         }
 
     }

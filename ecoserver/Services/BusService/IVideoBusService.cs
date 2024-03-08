@@ -2,11 +2,11 @@
 { 
     public interface IVideoBusService
     {
-        void Subscribe(Action<VideoMessage> subscriber);
+        void Subscribe(Action<EcodroneBoatMessage> subscriber, string id);
 
-        void Unsubscribe(Action<VideoMessage> unsubscriber);
+        void Unsubscribe(Action<EcodroneBoatMessage> unsubscriber, string id);
 
-        void Publish(VideoMessage eventMessage);
-
+        void Publish(EcodroneBoatMessage eventMessage);
+        bool IsASubscriber(string id);
     }
 }
