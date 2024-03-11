@@ -624,17 +624,18 @@ namespace webapi
                                     
                                     MissionParamIn missionParameters_in = CombinaVar<MissionParamIn>(bufferDataOnly);
 
-                                    MissionParam missionParameters = new MissionParam();
-
-                                    missionParameters.nMission = missionParameters_in.nMission;
-                                    missionParameters.total_mission_nWP = missionParameters_in.total_mission_nWP;
-                                    missionParameters.standRadius = missionParameters_in.standRadius;
-                                    missionParameters.NMStartInd = missionParameters_in.NMStartInd;
-                                    missionParameters.cycles = missionParameters_in.cycles;
-                                    missionParameters.NMmode = missionParameters_in.NMmode;
-                                    missionParameters.NMnum = missionParameters_in.NMnum;
-                                    missionParameters.wpEnd = missionParameters_in.wpEnd;
-                                    missionParameters.wpStart = missionParameters_in.wpStart;
+                                    MissionParam missionParameters = new MissionParam
+                                    {
+                                        nMission = missionParameters_in.nMission,
+                                        total_mission_nWP = missionParameters_in.total_mission_nWP,
+                                        standRadius = missionParameters_in.standRadius,
+                                        NMStartInd = missionParameters_in.NMStartInd,
+                                        cycles = missionParameters_in.cycles,
+                                        NMmode = missionParameters_in.NMmode,
+                                        NMnum = missionParameters_in.NMnum,
+                                        wpEnd = missionParameters_in.wpEnd,
+                                        wpStart = missionParameters_in.wpStart
+                                    };
 
                                     for (int i = 0; i < missionParameters_in.idMission.Length; i++)
                                     {

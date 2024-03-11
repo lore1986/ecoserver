@@ -88,11 +88,16 @@ public class EcodroneBoat
                     }                
                 }
                 break;
-                case 86 :
+                case 86 : //V
                 {
-                    if(message != null)
+                    if(ecoClient != null)
                     {
-                        VideoCommunication(message, ecoClient);
+                        ecoClient.clientCommunicationScope = ecoClient.clientCommunicationScope != ClientCommunicationScopes.VIDEO ? ClientCommunicationScopes.VIDEO : ecoClient.clientCommunicationScope;
+                        
+                        if(message != null)
+                        {
+                            VideoCommunication(message, ecoClient);
+                        }   
                     }
                 }
                 break;

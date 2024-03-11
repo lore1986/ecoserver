@@ -8,8 +8,8 @@ using webapi;
 public class EcoClient
 {
     public string IdClient { get; set; } = "NNN";
-    public GroupRole groupRole { get; set; } = GroupRole.None;
     public WebSocket? _socketClient {get; set;}
+    public ClientCommunicationScopes clientCommunicationScope = ClientCommunicationScopes.SENSORS_DATA;
 
     public async void SerializeAndSendMessage(EcodroneBoatMessage ecodroneMessage)
     {

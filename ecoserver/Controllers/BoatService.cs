@@ -212,7 +212,10 @@ namespace webapi.Controllers
 
                         while(!boat_racing_tasks.IsCompleted)
                         {
-                            await TeensyChannelReadAndSendData(ecoClient);
+                            if(ecoClient.clientCommunicationScope == ClientCommunicationScopes.SENSORS_DATA)
+                            {
+                                await TeensyChannelReadAndSendData(ecoClient);
+                            }
                         }
 
                     }else
