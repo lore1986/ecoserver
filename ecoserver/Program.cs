@@ -13,7 +13,7 @@ builder.Services.AddControllers();
 
 
 
-//builder.Services.AddSingleton<VideoSocketSingleton>();
+builder.Services.AddSingleton<IActiveBoatTracker, ActiveBoatTracker>();
 // builder.Services.AddSingleton<ISocketTeensyService, SocketTeensyService>();
 // builder.Services.AddScoped<IMiddlewareHandler,MiddlewareHandler> ();
 // builder.Services.AddSingleton<IVideoSocketSingleton, VideoSocketSingleton>();

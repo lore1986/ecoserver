@@ -9,8 +9,8 @@ namespace webapi
     public class VideoTcpListener
     {
         public string group_id { get; set; } = "NNN";
-        private TcpListener _jetsonClientListener {get; set;}
-        private VideoServer? jetson_server {get; set;} = null;
+        public TcpListener _jetsonClientListener {get; set;}
+        public VideoServer? jetson_server {get; set;} = null;
 
         private IVideoBusService _videoBusService {get;}
 
@@ -59,7 +59,7 @@ namespace webapi
         }
 
 
-        public async Task TaskJetson(VideoServer jetson_server)
+        public async Task TaskJetson()
         {
             if (jetson_server != null && jetson_server.sock_et != null)
             {
@@ -109,9 +109,9 @@ namespace webapi
 
         
 
-    	public void ListenJetson()
+    	public void ListenJetson(CancellationToken cancellationToken)
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 // Accept a new client connection
                 TcpClient sock_et = _jetsonClientListener.AcceptTcpClient();
@@ -121,12 +121,12 @@ namespace webapi
                 {
                     Task single_client_task = Task.Factory.StartNew(async () =>
                     {
-                        VideoServer video_listener = new VideoServer
+                        jetson_server = new VideoServer
                         {
                             sock_et = sock_et,
                             uuid = "jetson_id"
                         };
-                        await TaskJetson(video_listener);
+                        await TaskJetson();
                     });
                 }
 

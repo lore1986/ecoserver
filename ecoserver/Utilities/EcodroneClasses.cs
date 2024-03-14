@@ -93,7 +93,7 @@ public class NewClientEventArgs : EventArgs
 
 
 
-public enum ClientCommunicationScopes
+public enum ClientCommunicationStates
 {
     SENSORS_DATA,
     MISSIONS,

@@ -12,7 +12,9 @@ public class EcodroneTeensyInstance
 
     public Task? TaskReading { get; set; } = null;
 
-    public List<TeensyMessageContainer> task_que;
+    // public CancellationTokenSource cts = new CancellationTokenSource();
+    // public CancellationToken _cancellationToken;
+    
     public List<TeensyMessageContainer> command_task_que;
     public ITeensyMessageConstructParser _teensyLibParser { get; private set; }
     public Channel<ChannelTeensyMessage> channelTeensy { get; set; }
@@ -25,8 +27,8 @@ public class EcodroneTeensyInstance
         ecodroneBoat = boat;
         ecodroneBoat.maskedId = gid;
 
+        //_cancellationToken = cts.Token;
 
-        task_que = new List<TeensyMessageContainer>();
         _teensyLibParser =  new TeensyMessageConstructParser();
         command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
 
@@ -39,13 +41,13 @@ public class EcodroneTeensyInstance
 
     }
 
-    public async Task StartTeensyTalk()
+    public async Task StartTeensyTalk(CancellationToken cancellationToken)
     {
         using (_teensySocket = new TcpClient(ecodroneBoat._IPTeensy, ecodroneBoat._PortTeensy))
         {
             using (_networkStream = _teensySocket.GetStream())
             {
-                while (_teensySocket.Connected)
+                while (_teensySocket.Connected && !cancellationToken.IsCancellationRequested)
                 {
                     //here we start the channel of data from teensy and we publish data on the channel in case someone is reading.
                     if(command_task_que.Count > 0)
@@ -66,6 +68,11 @@ public class EcodroneTeensyInstance
                         command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
                     }
                 }
+
+                _networkStream.Close();
+                _networkStream.Dispose();
+                _teensySocket.Close();
+                _teensySocket.Dispose();
 
             }
         }
