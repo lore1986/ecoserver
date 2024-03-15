@@ -1,11 +1,13 @@
-using System.Reflection.Metadata.Ecma335;
-
 public  class EcodroneBoatSettings
 {
     public byte[] _sync_teensy = [0x10, 0x11, 0x12];
     public string _ipAddress = "192.168.1.213";
     public int _port = 5050;
     public bool _active = true;
+    // public EcodroneBoatSettings(byte[] sync_teensy, )
+    // {
+        
+    // }
 }
 
 public class ActiveBoatTracker : IActiveBoatTracker
@@ -15,6 +17,8 @@ public class ActiveBoatTracker : IActiveBoatTracker
     private Dictionary<string, EcodroneBoatSettings> ecodroneBoatSettings = new Dictionary<string, EcodroneBoatSettings>()
     {
         { "ecodrone_boatone", new EcodroneBoatSettings() }
+
+
     };
 
     public EcodroneBoat? CreateAddBoat(string boatId) 
@@ -39,6 +43,7 @@ public class ActiveBoatTracker : IActiveBoatTracker
     {
         return ecodroneBoats.SingleOrDefault(x => x.maskedId == boat_id);
     }
+
     public bool RemoveEcodroneBoatInstance(string boat_id)
     {
         EcodroneBoat? _ecodroneBoat = ecodroneBoats.SingleOrDefault(x => x.maskedId == boat_id);

@@ -1,0 +1,45 @@
+public void StartEcodroneBoatTasks()
+    {
+        _ecodroneBoatClienSocketListener.Start();
+        teensySocketInstance.TaskReading = Task.Run(() => teensySocketInstance.StartTeensyTalk(cancellationToken_all), cancellationToken_all); //=> teensySocketInstance.StartTeensyTalk(), _ecodroneBoat.cancellationToken);
+        
+        httpListener_task = Task.Run(() => callBack_BoatListener());
+        jetsonListener_task = Task.Run(() => ecodroneVideo.ListenJetson(cancellationToken_all));
+
+        
+
+    }
+
+    
+    private async Task callBack_BoatListener()
+    {
+        
+        //this function is still not closing
+        //explanation is acceptwebsocket or getcontext these are task that now have no cancellation
+        //the listening task prevail over the cancellation token request
+        //this is proven if you disconnect and refresh the page the cancellation token action will happen
+        //because there is a connection and the acceptsocketasycn action return and terminate
+
+        
+        try
+        {
+            while (_ecodroneBoatClienSocketListener.IsListening)
+            {
+                HttpListenerContext _client_context = await _ecodroneBoatClienSocketListener.GetContextAsync();
+                HttpListenerWebSocketContext websocket_context = await _client_context.AcceptWebSocketAsync(null, new TimeSpan(1000));
+                client_listen_task.Add(Task.Run(async () => { await HandlingClient(websocket_context.WebSocket); }));
+            }
+        }
+        finally
+        {
+            // Close and dispose of the HttpListener
+            //_ecodroneBoatClienSocketListener.Stop();
+            _ecodroneBoatClienSocketListener.Stop();
+            _ecodroneBoatClienSocketListener.Close();
+        }
+    
+        Debug.WriteLine("i am called");
+        //_ecodroneBoatClienSocketListener.Stop();
+        //_ecodroneBoatClienSocketListener.Close();
+
+    }

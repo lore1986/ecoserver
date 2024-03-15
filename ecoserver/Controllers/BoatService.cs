@@ -1,9 +1,5 @@
-using System.Diagnostics;
-using System.Net;
-using System.Net.WebSockets;
-using System.Text;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
+
 
 namespace webapi.Controllers 
 {
@@ -44,11 +40,6 @@ namespace webapi.Controllers
             
             EcodroneBoat? _ecodroneBoat = _activeBoatTracker.CreateAddBoat(boatid);
 
-            if(_ecodroneBoat != null)
-            {
-                
-            }
-
             return _ecodroneBoat;
         }
         
@@ -66,6 +57,26 @@ namespace webapi.Controllers
             }
             
             return Ok();
+        }
+        
+        [HttpPost("ReactivateBoat")]
+        public IActionResult ReactivateBoat(string boatid)
+        {
+            
+            //from boatid get database to fill this data below
+            if(true)
+            {
+                
+                EcodroneBoat? boat = ActivateBoatInternal(boatid);
+
+                if(boat != null)
+                {
+                    boat.StartEcodroneBoatTasks();
+                }
+                
+                return Ok();
+            }
+        
         }
         
 
