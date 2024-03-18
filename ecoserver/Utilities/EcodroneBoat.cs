@@ -25,13 +25,9 @@ public class EcodroneBoat
     public VideoTcpListener ecodroneVideo {get; protected set;}
     public IVideoBusService _videoBusService { get; set; } = new VideoBusService();
 
-    public List<Task> client_listen_task = new List<Task>();
+    public CancellationTokenSource src_cts_boat = new CancellationTokenSource();
+    public CancellationToken cts_boat {get; private set;}
 
-    public CancellationTokenSource cts_all = new CancellationTokenSource();
-    public CancellationToken cancellationToken_all {get; private set;}
-
-    public CancellationTokenSource cts_client = new CancellationTokenSource();
-    public CancellationToken client_cancellationToken {get; private set;}
 
     public EcodroneBoat(string _maskedid, byte[] sync, string IPT, int PT, bool setActive = false)
     {
@@ -48,9 +44,7 @@ public class EcodroneBoat
         teensySocketInstance = new EcodroneTeensyInstance(this, _maskedid);
         ecodroneVideo = new VideoTcpListener(_videoBusService, portvideo);
         
-        //taskFactory = new TaskFactory(cancellationToken);
-        cancellationToken_all = cts_all.Token;
-        client_cancellationToken = cts_client.Token;
+        cts_boat = src_cts_boat.Token;
     }
 
     public EcodroneBoat ChangeState(bool state)
@@ -75,148 +69,187 @@ public class EcodroneBoat
     public void StartEcodroneBoatTasks()
     {
        _ecodroneBoatClienSocketListener.Start();
-        teensySocketInstance.TaskReading = Task.Run(() => teensySocketInstance.StartTeensyTalk(cancellationToken_all), cancellationToken_all);
+        teensySocketInstance.TaskReading = Task.Run(teensySocketInstance.StartTeensyTalk, teensySocketInstance.cts_teensy);
 
-        _ecodroneBoatClienSocketListener.BeginGetContext(ListenerCallback, _ecodroneBoatClienSocketListener);
-        httpListener_task = Task.CompletedTask; // Not needed anymore
-        jetsonListener_task = Task.Run(() => ecodroneVideo.ListenJetson(cancellationToken_all));
+        _ecodroneBoatClienSocketListener.BeginGetContext(callBack_BoatListener, _ecodroneBoatClienSocketListener);
+        ecodroneVideo._jetsonClientListener.BeginAcceptTcpClient(new AsyncCallback(ecodroneVideo.OnClientConnect), ecodroneVideo._jetsonClientListener);
+        //jetsonListener_task = Task.Run(() => ecodroneVideo.ListenJetson());
         
     }
 
-    private async void ListenerCallback(IAsyncResult result)
+    private async void callBack_BoatListener(IAsyncResult result)
     {   
-        if(_ecodroneBoatClienSocketListener.IsListening)
+        if(_ecodroneBoatClienSocketListener.IsListening && !cts_boat.IsCancellationRequested)
         {
-            HttpListener listener = (HttpListener)result.AsyncState;
-            HttpListenerContext context = listener.EndGetContext(result);
-        
-            HttpListenerWebSocketContext websocket_context = await context.AcceptWebSocketAsync(null, new TimeSpan(1000));
-            client_listen_task.Add(Task.Run(async () => { await HandlingClient(websocket_context.WebSocket); }));
-            listener.BeginGetContext(ListenerCallback, listener);
-        }     
-    }
-
-    
-    private async Task callBack_BoatListener()
-    {
-        
-        //this function is still not closing
-        //explanation is acceptwebsocket or getcontext these are task that now have no cancellation
-        //the listening task prevail over the cancellation token request
-        //this is proven if you disconnect and refresh the page the cancellation token action will happen
-        //because there is a connection and the acceptsocketasycn action return and terminate
-
-        
-        try
-        {
-            while (_ecodroneBoatClienSocketListener.IsListening)
+            try
             {
-                HttpListenerContext _client_context = await _ecodroneBoatClienSocketListener.GetContextAsync();
-                HttpListenerWebSocketContext websocket_context = await _client_context.AcceptWebSocketAsync(null, new TimeSpan(1000));
-                client_listen_task.Add(Task.Run(async () => { await HandlingClient(websocket_context.WebSocket); }));
-            }
-        }
-        finally
-        {
-            // Close and dispose of the HttpListener
-            //_ecodroneBoatClienSocketListener.Stop();
-            _ecodroneBoatClienSocketListener.Stop();
-            _ecodroneBoatClienSocketListener.Close();
-        }
-    
-        Debug.WriteLine("i am called");
-        //_ecodroneBoatClienSocketListener.Stop();
-        //_ecodroneBoatClienSocketListener.Close();
+                HttpListener? listener = (HttpListener?)result.AsyncState;
+                
+                if(listener != null)
+                {
+                    HttpListenerContext context = listener.EndGetContext(result);
+                    HttpListenerWebSocketContext websocket_context = await context.AcceptWebSocketAsync(null, new TimeSpan(1000));
+                    
+                    EcoClient? new_client = new EcoClient();
 
+                    new_client.main_task = new Task (async () => { await HandlingClient(websocket_context.WebSocket, new_client); }, new_client.cts_client);
+                    new_client.main_task.Start();
+
+                    await Task.Run(() =>listener.BeginGetContext(callBack_BoatListener, listener), cts_boat);
+                }
+                
+            }
+            catch (ObjectDisposedException)
+            {
+                ///do nothing
+                Debug.WriteLine("we manage this way object disposed exeption on close");
+            }
+            
+        }else
+        {
+            
+        }
     }
 
-    // public async void callbackgetcontext(IAsyncResult result)
-    // {
-    //     HttpListener listener = (HttpListener)result.AsyncState;
+    public async Task HandlingClient(WebSocket webSocket, EcoClient? ecoClient) 
+    {
+        if(ecoClient != null)
+        {
+            while (webSocket.State == WebSocketState.Open && !ecoClient.cts_client.IsCancellationRequested)
+            {
+                if(ecoClient != null && ecoClient.IdClient != "NNN")
+                {
+                    Tuple<string, Task> listen_task = Tuple.Create("listen_task", Task.Run(() => ReadWebSocket(webSocket, ecoClient)));
 
-    //     if(_ecodroneBoatClienSocketListener.IsListening && !cancellationToken_all.IsCancellationRequested)
-    //     {
-    //         HttpListenerWebSocketContext websocket_context = await listener.GetContext().AcceptWebSocketAsync(null, new TimeSpan(1000));
-    //         client_listen_task.Add(Task.Run(async () => { await HandlingClient(websocket_context.WebSocket); }));
-    //         _ecodroneBoatClienSocketListener.BeginGetContext(callbackgetcontext, _ecodroneBoatClienSocketListener);
-    //     }else
-    //     {
-    //         HttpListenerContext _client_context = _ecodroneBoatClienSocketListener.EndGetContext(result);
-    //     }
+                    while(!listen_task.Item2.IsCompleted && !ecoClient.cts_client.IsCancellationRequested)
+                    {
+                        if(ecoClient.appState == ClientCommunicationStates.VIDEO)
+                        {
+                            if(!_videoBusService.IsASubscriber(ecoClient.IdClient))
+                            {
+                                _videoBusService.Subscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient);
+                            }
+                        }
 
-    // }
+                        
+                        if(ecoClient.appState == ClientCommunicationStates.SENSORS_DATA)
+                        {
+                            
+                            await TeensyChannelReadAndSendData(ecoClient);
+                            
+                        }
+                    }
+                    
+                }else
+                {
+                    //here authenticate if not already 
+                    ecoClient = await ReadFirstMessage(webSocket);
+
+                    if(ecoClient.IdClient == "NNN")
+                    {
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client is not created", CancellationToken.None);
+                    }
+                }
+            }
+
+            if(ecoClient.appState == ClientCommunicationStates.VIDEO)
+            {
+                EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
+                {
+                    scope = 'U',
+                    type = "0",
+                    uuid = ecoClient.IdClient,
+                    direction = "jetson_id",
+                    identity = ecoClient.IdClient,
+                    data = "NNN"
+                };
+
+                _videoBusService.Publish(ecodroneBoatMessage);
+                _videoBusService.Unsubscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient); 
+            }
+        
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
+            _boatclients.Remove(ecoClient);
+
+        }
+        
+    
+    }
 
     public async Task ReadWebSocket(WebSocket _webSocket, EcoClient? ecoClient)
     {
-        var buffer = new byte[1024 * 4];
-        var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-        byte message_scope = buffer[0];
-    
-        if(IsCorrectByte(message_scope))
+        if(ecoClient != null)
         {
-            
-            byte[] message_length = new byte[4];
-            byte[] byte_message = new byte[receiveResult.Count - 4];
-            
-            Array.Copy(buffer, 1, message_length, 0, message_length.Length);
-            Array.Copy(buffer, 5, byte_message, 0, byte_message.Length);
+            var buffer = new byte[1024 * 4];
+            var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
-            if (BitConverter.IsLittleEndian)
+            byte message_scope = buffer[0];
+        
+            if(IsCorrectByte(message_scope))
             {
-                Array.Reverse(message_length); // Reverse the byte array if the system is little-endian
-            }
-            
-            EcodroneBoatMessage? message = JsonConvert.DeserializeObject<EcodroneBoatMessage>(Encoding.UTF8.GetString(byte_message));
+                
+                byte[] message_length = new byte[4];
+                byte[] byte_message = new byte[receiveResult.Count - 4];
+                
+                Array.Copy(buffer, 1, message_length, 0, message_length.Length);
+                Array.Copy(buffer, 5, byte_message, 0, byte_message.Length);
 
-            switch (message_scope)
-            {
-                case 67 : //C
+                if (BitConverter.IsLittleEndian)
                 {
-                    //command
-                    if(message != null)
+                    Array.Reverse(message_length); // Reverse the byte array if the system is little-endian
+                }
+                
+                EcodroneBoatMessage? message = JsonConvert.DeserializeObject<EcodroneBoatMessage>(Encoding.UTF8.GetString(byte_message));
+
+                switch (message_scope)
+                {
+                    case 67 : //C
                     {
-                        if(message.data != null)
+                        //command
+                        if(message != null)
                         {
-                            GotCommand((byte[])message.data);  //fix command message data 
+                            if(message.data != null)
+                            {
+                                GotCommand((byte[])message.data);  //fix command message data 
+                            }
+                        }                
+                    }
+                    break;
+                    case 86 : //V
+                    {
+                        if(ecoClient != null)
+                        {
+                            if(message != null)
+                            {
+                                ecoClient.VideoCommunication(message, this);
+                            }   
                         }
-                    }                
-                }
-                break;
-                case 86 : //V
-                {
-                    if(ecoClient != null)
-                    {
-                        if(message != null)
-                        {
-                            ecoClient.VideoCommunication(message, this);
-                        }   
                     }
-                }
-                break;
-                case 83: //S
-                {
-                    if(ecoClient != null)
+                    break;
+                    case 83: //S
                     {
-                                                
-                        if(message != null)
+                        if(ecoClient != null)
                         {
-                            ecoClient.BoatClientAppStateManager(message, this);
-                        }   
-                    }
-                    
+                                                    
+                            if(message != null)
+                            {
+                                ecoClient.BoatClientAppStateManager(message, this);
+                            }   
+                        }
+                        
 
+                    }
+                    break;
+                    default:
+                    //store in variable or discard if message is not full
+                    {
+                        // if(_ecoClient != null)
+                        // {
+                        //     await TeensyChannelReadAndSend(_ecoClient);
+                        // }
+                    }
+                    break;
                 }
-                break;
-                default:
-                //store in variable or discard if message is not full
-                {
-                    // if(_ecoClient != null)
-                    // {
-                    //     await TeensyChannelReadAndSend(_ecoClient);
-                    // }
-                }
-                break;
             }
         }
         
@@ -379,45 +412,32 @@ public class EcodroneBoat
     
     public async Task<bool> DeactivateBoat()
     {
-        // _ecodroneBoatClienSocketListener.Stop();
-        // _ecodroneBoatClienSocketListener.Close();
 
-        cts_client.Cancel();
-        cts_all.Cancel();
-    
-        await Task.WhenAll(client_listen_task);
+        teensySocketInstance.src_cts_teensy.Cancel();
 
-        //_ecodroneBoatClienSocketListener.Abort();
-        _ecodroneBoatClienSocketListener.Stop();
-         _ecodroneBoatClienSocketListener.Close();
-
-        if(teensySocketInstance != null && teensySocketInstance.TaskReading != null)
+        for (int i = 0; i < _boatclients.Count(); i++)
         {
-           await teensySocketInstance.TaskReading.WaitAsync(cancellationToken_all);
+                EcoClient ecoClient = _boatclients[i];
+
+                ecoClient.src_cts_client.Cancel();
+                if(ecoClient.main_task != null) 
+                    ecoClient.main_task.Wait(ecoClient.cts_client);
         }
+    
 
-       
-        //_ecodroneBoatClienSocketListener.Abort();
-        
-        
-        
-        
-        //httpListener_task.Wait(cancellationToken);
-        
-        // _ecodroneBoatClienSocketListener.Stop();
-        // _ecodroneBoatClienSocketListener.Close();
-
-        // if(ecodroneVideo.jetson_server != null && ecodroneVideo.jetson_server.sock_et != null)
-        // {
-        //     ecodroneVideo._jetsonClientListener.Stop();
-        //     ecodroneVideo.jetson_server.sock_et.Close();
-        //     ecodroneVideo.jetson_server.sock_et.Dispose();
-        //     //ecodroneVideo._jetsonClientListener.Server.Shutdown(System.Net.Sockets.SocketShutdown.Both);
-        // }
+        src_cts_boat.Cancel();
+        ecodroneVideo.src_cts_jetson.Cancel();
 
 
-        //;
-        //await jetsonListener_task.WaitAsync(cancellationToken);
+        _ecodroneBoatClienSocketListener.Stop();
+        _ecodroneBoatClienSocketListener.Prefixes.Remove($"http://localhost:{port}/");
+        _ecodroneBoatClienSocketListener.Close();
+
+        ecodroneVideo._jetsonClientListener.Stop();
+        ecodroneVideo._jetsonClientListener.Dispose();
+
+        
+
 
         return true;
     }
@@ -467,68 +487,7 @@ public class EcodroneBoat
         return _client;
     }
 
-    public async Task HandlingClient(WebSocket webSocket) 
-    {
- 
-        EcoClient? ecoClient = null;
-        
-        while (!client_cancellationToken.IsCancellationRequested)
-        {
-            if(ecoClient != null)
-            {
-                Task boat_racing_tasks = ReadWebSocket(webSocket, ecoClient);
-                
-                while(!boat_racing_tasks.IsCompleted && !client_cancellationToken.IsCancellationRequested)
-                {
-                    if(ecoClient.appState == ClientCommunicationStates.VIDEO)
-                    {
-                        if(!_videoBusService.IsASubscriber(ecoClient.IdClient))
-                        {
-                            _videoBusService.Subscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient);
-                        }
-                    }
-
-                    
-                    if(ecoClient.appState == ClientCommunicationStates.SENSORS_DATA)
-                    {
-                        
-                        await TeensyChannelReadAndSendData(ecoClient);
-                        
-                    }
-                }
-                
-            }else
-            {
-                //here authenticate if not already 
-                ecoClient = await ReadFirstMessage(webSocket);
-
-                if(ecoClient.IdClient == "NNN")
-                {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client is not created", CancellationToken.None);
-                }
-            }
-        }
-
-        EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
-        {
-            scope = 'U',
-            type = "0",
-            uuid = ecoClient.IdClient,
-            direction = "jetson_id",
-            identity = ecoClient.IdClient,
-            data = "NNN"
-        };
-
-        _videoBusService.Publish(ecodroneBoatMessage);
-        _videoBusService.Unsubscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient); 
-        
-
-        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
-        _boatclients.Remove(ecoClient);
-        
-
     
-    }
 
     private async Task TeensyChannelReadAndSendData(EcoClient ecoClient)
     {

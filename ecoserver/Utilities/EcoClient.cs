@@ -11,6 +11,17 @@ public class EcoClient
     public WebSocket? _socketClient {get; set;}
     public ClientCommunicationStates appState = ClientCommunicationStates.SENSORS_DATA;
 
+    public CancellationTokenSource src_cts_client = new CancellationTokenSource();
+    public CancellationToken cts_client {get; private set;}
+
+    public Task? main_task {get; set;}
+    public List<Tuple<string, Task>> client_listen_task = new List<Tuple<string, Task>>();
+
+    public EcoClient()
+    {
+        cts_client = src_cts_client.Token;
+    }
+
     public async void SerializeAndSendMessage(EcodroneBoatMessage ecodroneMessage)
     {
         if(_socketClient != null)
@@ -79,18 +90,6 @@ public class EcoClient
                                     
                                     boat._videoBusService.Publish(ecodroneBoatMessage);
                                     boat._videoBusService.Unsubscribe(this.SerializeAndSendMessage, IdClient);
-
-                                    //justTotest
-                                    // boat._boatclients.Remove(this);
-
-                                    
-                                    // await boat.teensySocketInstance.cts.CancelAsync();
-                                    // if(boat.teensySocketInstance.TaskReading != null)
-                                    // {
-                                    //     boat.teensySocketInstance.TaskReading.Wait(boat.teensySocketInstance._cancellationToken);
-                                    // }
-
-                                    // boat.teensySocketInstance.cts.Dispose();
                                     
                                 }
 
@@ -114,22 +113,6 @@ public class EcoClient
                             }
                         }
                         break;
-                        // case "MAP":
-                        // {
-                        //     if(appState != ClientCommunicationStates.MISSIONS)
-                        //     {
-                                
-                        //     }
-                        // }
-                        // break;
-                        // case "MEM":
-                        // {
-                        //     if(appState != ClientCommunicationStates.)
-                        //     {
-                                
-                        //     }
-                        // }
-                        // break;
                     }
                 }
                 break;

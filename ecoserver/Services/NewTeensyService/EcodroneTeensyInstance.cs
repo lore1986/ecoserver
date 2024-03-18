@@ -12,8 +12,8 @@ public class EcodroneTeensyInstance
 
     public Task? TaskReading { get; set; } = null;
 
-    // public CancellationTokenSource cts = new CancellationTokenSource();
-    // public CancellationToken _cancellationToken;
+    public CancellationTokenSource src_cts_teensy = new CancellationTokenSource();
+    public CancellationToken cts_teensy {get; private set;}
     
     public List<TeensyMessageContainer> command_task_que;
     public ITeensyMessageConstructParser _teensyLibParser { get; private set; }
@@ -27,7 +27,7 @@ public class EcodroneTeensyInstance
         ecodroneBoat = boat;
         ecodroneBoat.maskedId = gid;
 
-        //_cancellationToken = cts.Token;
+        cts_teensy = src_cts_teensy.Token;
 
         _teensyLibParser =  new TeensyMessageConstructParser();
         command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
@@ -41,15 +41,14 @@ public class EcodroneTeensyInstance
 
     }
 
-    public async Task StartTeensyTalk(CancellationToken cancellationToken)
+    public async Task StartTeensyTalk()
     {
         using (_teensySocket = new TcpClient(ecodroneBoat._IPTeensy, ecodroneBoat._PortTeensy))
         {
             using (_networkStream = _teensySocket.GetStream())
             {
-                while (_teensySocket.Connected && !cancellationToken.IsCancellationRequested)
+                while (_teensySocket.Connected && !cts_teensy.IsCancellationRequested)
                 {
-                    //here we start the channel of data from teensy and we publish data on the channel in case someone is reading.
                     if(command_task_que.Count > 0)
                     {
                         while(command_task_que.Count > 0)
@@ -91,7 +90,7 @@ public class EcodroneTeensyInstance
 
         if (_networkStream != null)
         {
-            await _networkStream.WriteAsync(data, 0, data.Length, CancellationToken.None);
+            await _networkStream.WriteAsync(data, 0, data.Length);
             
             channelMessage = await _teensyLibParser.ReadBufferAsync(_networkStream);
 
@@ -110,7 +109,7 @@ public class EcodroneTeensyInstance
     {
         if (channelData.data_message != null)
         {
-            channelTeensy.Writer.WriteAsync(channelData);
+            channelTeensy.Writer.WriteAsync(channelData, cts_teensy);
         }
 
         //if there is a new issued command then add it to the list of tasks at position 0

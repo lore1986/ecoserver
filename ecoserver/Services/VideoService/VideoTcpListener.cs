@@ -14,10 +14,32 @@ namespace webapi
 
         private IVideoBusService _videoBusService {get;}
 
+        public Task? main_video_task {get; set;} = null;
+        public CancellationTokenSource src_cts_jetson = new CancellationTokenSource();
+        public CancellationToken cts_jetson {get; private set;}
+
+
+
+        //  EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
+        //     {
+        //         scope = 'U',
+        //         type = "0",
+        //         uuid = ecoClient.IdClient,
+        //         direction = "jetson_id",
+        //         identity = ecoClient.IdClient,
+        //         data = "NNN"
+        //     };
+
+        //     _videoBusService.Publish(ecodroneBoatMessage);
+        //     _videoBusService.Unsubscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient); 
+
+
+
         public VideoTcpListener(IVideoBusService videoBusService, int serviceport)
         {
             _jetsonClientListener = new TcpListener(IPAddress.Any, serviceport);
             _videoBusService = videoBusService;
+            cts_jetson = src_cts_jetson.Token;
 
             _jetsonClientListener.Start();
             Debug.WriteLine("Video process constructed");
@@ -67,7 +89,7 @@ namespace webapi
                 int bytesRead = -1;
                 byte[] buffer = new byte[16384];
             
-                while ((bytesRead = await jetson_server.networkStream.ReadAsync(buffer)) > 0)
+                while ((bytesRead = await jetson_server.networkStream.ReadAsync(buffer, cts_jetson)) > 0)
                 {
 
                     string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
@@ -107,30 +129,26 @@ namespace webapi
             }
         }
 
-        
 
-    	public void ListenJetson(CancellationToken cancellationToken)
+
+        public void OnClientConnect(IAsyncResult ar)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            TcpClient newclient = _jetsonClientListener.EndAcceptTcpClient(ar);
+            
+        
+            if (newclient.Connected )
             {
-                // Accept a new client connection
-                TcpClient sock_et = _jetsonClientListener.AcceptTcpClient();
-                
-
-                if (sock_et.Connected)
+                main_video_task = Task.Factory.StartNew(async () =>
                 {
-                    Task single_client_task = Task.Factory.StartNew(async () =>
+                    jetson_server = new VideoServer
                     {
-                        jetson_server = new VideoServer
-                        {
-                            sock_et = sock_et,
-                            uuid = "jetson_id"
-                        };
-                        await TaskJetson();
-                    });
-                }
-
+                        sock_et = newclient,
+                        uuid = "jetson_id"
+                    };
+                    await TaskJetson();
+                }, cts_jetson);
             }
+
         }
         
 
