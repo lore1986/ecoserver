@@ -89,7 +89,7 @@ public class EcoClient
                                     
                                     
                                     boat._videoBusService.Publish(ecodroneBoatMessage);
-                                    boat._videoBusService.Unsubscribe(this.SerializeAndSendMessage, IdClient);
+                                    boat._videoBusService.Unsubscribe(SerializeAndSendMessage, IdClient);
                                     
                                 }
 

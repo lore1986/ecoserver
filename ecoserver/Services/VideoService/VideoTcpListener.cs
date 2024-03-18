@@ -11,9 +11,7 @@ namespace webapi
         public string group_id { get; set; } = "NNN";
         public TcpListener _jetsonClientListener {get; set;}
         public VideoServer? jetson_server {get; set;} = null;
-
         private IVideoBusService _videoBusService {get;}
-
         public Task? main_video_task {get; set;} = null;
         public CancellationTokenSource src_cts_jetson = new CancellationTokenSource();
         public CancellationToken cts_jetson {get; private set;}
@@ -89,7 +87,7 @@ namespace webapi
                 int bytesRead = -1;
                 byte[] buffer = new byte[16384];
             
-                while ((bytesRead = await jetson_server.networkStream.ReadAsync(buffer, cts_jetson)) > 0)
+                while ((bytesRead = await jetson_server.networkStream.ReadAsync(buffer)) > 0)
                 {
 
                     string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
@@ -136,9 +134,9 @@ namespace webapi
             TcpClient newclient = _jetsonClientListener.EndAcceptTcpClient(ar);
             
         
-            if (newclient.Connected )
+            if (newclient.Connected)
             {
-                main_video_task = Task.Factory.StartNew(async () =>
+                main_video_task = new Task(async () =>
                 {
                     jetson_server = new VideoServer
                     {
@@ -147,6 +145,8 @@ namespace webapi
                     };
                     await TaskJetson();
                 }, cts_jetson);
+
+                main_video_task.Start();
             }
 
         }

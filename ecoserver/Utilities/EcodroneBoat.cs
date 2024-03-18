@@ -427,6 +427,9 @@ public class EcodroneBoat
 
         src_cts_boat.Cancel();
         ecodroneVideo.src_cts_jetson.Cancel();
+        
+        if(ecodroneVideo.main_video_task != null)
+            ecodroneVideo.main_video_task.Wait(ecodroneVideo.cts_jetson);
 
 
         _ecodroneBoatClienSocketListener.Stop();
