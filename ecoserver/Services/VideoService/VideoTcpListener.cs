@@ -131,6 +131,7 @@ namespace webapi
 
         public void OnClientConnect(IAsyncResult ar)
         {
+            //manage here if no video connected
             TcpClient newclient = _jetsonClientListener.EndAcceptTcpClient(ar);
             
         

@@ -79,26 +79,6 @@ namespace webapi
     }
 
 
-    public class MissionParam
-    {
-        public string idMission = ""; //Mission ID char idMission[32]; //Mission ID
-        public UInt16 nMission; //Mission number
-        public UInt16 total_mission_nWP; //Number of waypoints of current mission
-        public UInt16 wpStart;//Start waypoint of repetition cycle
-        public UInt16 cycles; //How many execution cycles of the current mission
-        public UInt16 wpEnd;  //Final waypoint of repetition cycle
-        public byte NMmode; //What to do next (0,1,2,3,4) - 0: nessuna missione; 1: da fine cicla vai alla successiva;
-                              //  2: dopo tutti i waypoint vai alla successiva; 3: all'ultimo WP del ciclo stazioni in un certo raggio fino a nuovo ordine
-                              // 4: staziona all'ultimo WP della missione
-        public UInt16 NMnum;  //Number of the next mission
-        public UInt16 NMStartInd; //Start waypoint of next mission
-
-        public string idMissionNext = ""; //String with the path of the mission char idMission[32]; //Mission ID
-        public float standRadius; //WP standing mode radius 
-    }
-
-
-
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct WayPoint
     {
@@ -117,5 +97,54 @@ namespace webapi
         public float WaypointRadius; //Raggio entro il quale passare al WP successivo
                               //16.600.000 waypoint totali sulla flash
     }
-   
+
+    public class MissionParam
+    {
+        public string idMission = ""; //Mission ID char idMission[32]; //Mission ID
+        public UInt16 nMission; //Mission number
+        public UInt16 total_mission_nWP; //Number of waypoints of current mission
+        public UInt16 wpStart;//Start waypoint of repetition cycle
+        public UInt16 cycles; //How many execution cycles of the current mission
+        public UInt16 wpEnd;  //Final waypoint of repetition cycle
+        public byte NMmode; //What to do next (0,1,2,3,4) - 0: nessuna missione; 1: da fine cicla vai alla successiva;
+                              //  2: dopo tutti i waypoint vai alla successiva; 3: all'ultimo WP del ciclo stazioni in un certo raggio fino a nuovo ordine
+                              // 4: staziona all'ultimo WP della missione
+        public UInt16 NMnum;  //Number of the next mission
+        public UInt16 NMStartInd; //Start waypoint of next mission
+
+        public string idMissionNext = ""; //String with the path of the mission char idMission[32]; //Mission ID
+        public float standRadius; //WP standing mode radius 
+    }
+
+    public struct UploadMissionHeader
+    {
+        public string IdMission;
+        public ushort MissionNumber;
+        public ushort TotalWayPoint; 
+        public ushort WpStart; 
+        public ushort Cycles; 
+        public ushort WpEnd; 
+        public byte NMmode; 
+        public ushort NMnum; 
+        public ushort NMstart; 
+        public string IdMissionNext;
+        public float StandRadius; 
+    }
+    public struct UploadWaypoint
+    {
+        public float lng {get; set;}
+        public float lat {get; set;}
+        public byte navmode {get; set;}
+        public byte pointype {get; set;}
+        public byte mon {get; set;}
+        public byte amode {get; set;}
+        public float wrad {get; set;}
+    }
+
+    public class UploadMissionData
+    {
+        public UploadMissionHeader missionParam {get; set;} = new UploadMissionHeader();
+        public List<UploadWaypoint> pointslist {get; set;} = new List<UploadWaypoint>();
+    }
+
 }

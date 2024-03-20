@@ -5,7 +5,7 @@
             "name": "ecoserver",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}\\ecoserver\\ecoserver.csproj"
+            "projectPath": "${workspaceFolder}\\ecoserver\\ecoserver.csproj",
         }
     ]
 }

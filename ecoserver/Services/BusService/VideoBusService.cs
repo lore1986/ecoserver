@@ -1,4 +1,6 @@
-﻿namespace webapi
+﻿using System.Diagnostics;
+
+namespace webapi
 {
     public class VideoBusService : IVideoBusService
     {
@@ -29,7 +31,15 @@
 
         public bool IsASubscriber(string id)
         {
-            return _subscribers.Any(x => x.Item2 == id);
+            try{
+                bool tuple = _subscribers.Any(x => x.Item2 == id);
+                return tuple;
+            }catch(Exception ex)
+            {
+                Debug.WriteLine($"error on subscriber: { ex.Message }");
+                return false;
+            }
+            
         }
 
     }

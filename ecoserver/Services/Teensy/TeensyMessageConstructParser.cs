@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -24,7 +25,7 @@ namespace webapi
         public int _port { get; private set; } = 0;
 
         
-        private byte[] bufferSend = new byte[255];
+        //private byte[] bufferSend = new byte[255];
 
 
         private List<WayPoint>? wayPoints = null;
@@ -32,8 +33,8 @@ namespace webapi
         private UInt16 totalWaypoints { get; set; } = 0;
 
 
-        private ushort initMultiVar { get; set; } = 0;
-        private ushort indexByteLoad { get; set; } = 10;
+        // private ushort initMultiVar { get; set; } = 0;
+        // private ushort indexByteLoad { get; set; } = 10;
 
 
         public TeensyMessageConstructParser()
@@ -69,26 +70,77 @@ namespace webapi
         }
 
 
-
-        public byte[] PrepareTeensyRequest(byte[] c)
+        private byte[] SendConstructBuff(byte[] command, byte[] bufferSend)
         {
-            if(c.Length > 6)
-            {
-                byte[] payload = new byte[c.Length - 6];
-                Array.Copy(c, 6, payload, 0, payload.Length);
+            byte[] array1 = new byte[bufferSend.Length + 1];
 
-                CostructBuff(payload);
+
+            array1[cmdRW.INDEX_SINCHAR_0] = _paramId.Boat[0];
+            array1[cmdRW.INDEX_SINCHAR_1] = _paramId.Boat[1];
+            array1[cmdRW.INDEX_SINCHAR_2] = _paramId.Boat[2];
+
+            array1[cmdRW.INDEX_BUF_LENG] = (byte)(bufferSend.Length - 2);
+            array1[cmdRW.INDEX_BUF_SORG] = command[0];
+            array1[cmdRW.INDEX_BUF_DEST] = command[1];
+            array1[cmdRW.INDEX_BUF_ID_D] = command[2];
+
+            array1[cmdRW.INDEX_BUF_CMD_1] = command[3];
+            array1[cmdRW.INDEX_BUF_CMD_2] = command[4];
+            array1[cmdRW.INDEX_BUF_CMD_3] = command[5];
+
+            
+            
+            Array.Copy(bufferSend, 10, array1, 10, bufferSend.Length - 10);
+
+            byte ck = CksumCompute(array1);
+            array1[array1.Length - 1] = ck;
+
+
+            return array1;
+        }
+
+        private byte[]? ConstructBuff(byte[] obj)
+        {
+            if (obj == null)
+            {
+                return null;
             }
 
-            byte[] commands = new byte[6];
-            Array.Copy(c, 0, commands, 0, 6);
+            long length_buffer = cmdRW.INDEX_BUF_CONTB + obj.Length;
+            byte[] bufferSend = new byte[length_buffer];
+            int indexbuff = 0;
 
-            byte[] buffer_ready_send = SendCostructBuff(commands);
+            for (ushort i = cmdRW.INDEX_BUF_CONTB; i < length_buffer; i++)
+            {
+                bufferSend[i] = obj[indexbuff];
+                indexbuff++;
+            }
 
-            indexByteLoad = cmdRW.INDEX_BUF_CONTB;
+            return bufferSend;
 
-            //ABSOULUTELY CHECK THIS
-            initMultiVar = 0;
+        }
+        public byte[] PrepareTeensyRequest(byte[] c)
+        {
+            
+            byte[] command_message = new byte[6];
+            byte[]? message_ok = null;
+
+            Array.Copy(c, command_message, 6);
+
+            if(c.Length > 6)
+            {
+                byte[] payload_message = new byte[c.Length - 6];
+                Array.Copy(c, 6, payload_message, 0, payload_message.Length);
+
+                message_ok = ConstructBuff(payload_message);
+            }
+
+            if(message_ok == null)
+            {
+                message_ok = new byte[10];
+            }
+
+            byte[] buffer_ready_send = SendConstructBuff(command_message, message_ok);
 
             return buffer_ready_send;
         }
@@ -110,6 +162,8 @@ namespace webapi
             byte message_length = 0;
             byte indexByte = 0;
             string my_buff_text = "";
+
+            byte[] pure_anal_array = new byte[bytesRead];
 
             for (int i = 0; i < bytesRead; i++)
             {
@@ -190,11 +244,9 @@ namespace webapi
         private byte CksumCompute(byte[] buff)
         {
             byte cksum = 0;
-            int indexBufLeng = 3; // Assuming INDEX_BUF_LENG is 3
+            int indexBufLeng = 3; 
 
-            var t = buff[indexBufLeng];
-
-            for (int i = indexBufLeng; i < (buff[indexBufLeng] + indexBufLeng - 1); i++)
+            for (int i = indexBufLeng; i < buff.Length ; i++)
             {
                 cksum += buff[i];
             }
@@ -202,57 +254,7 @@ namespace webapi
             return cksum;
         }
 
-        private byte[] SendCostructBuff(byte[] command)
-        {
-            bufferSend[cmdRW.INDEX_SINCHAR_0] = _paramId.Boat[0];
-            bufferSend[cmdRW.INDEX_SINCHAR_1] = _paramId.Boat[1];
-            bufferSend[cmdRW.INDEX_SINCHAR_2] = _paramId.Boat[2];
-
-            bufferSend[cmdRW.INDEX_BUF_LENG] = (byte)(indexByteLoad - cmdRW.INDEX_SINCHAR_2);
-            bufferSend[cmdRW.INDEX_BUF_SORG] = command[0];
-            bufferSend[cmdRW.INDEX_BUF_DEST] = command[1];
-            bufferSend[cmdRW.INDEX_BUF_ID_D] = command[2];
-
-            bufferSend[cmdRW.INDEX_BUF_CMD_1] = command[3];
-            bufferSend[cmdRW.INDEX_BUF_CMD_2] = command[4];
-            bufferSend[cmdRW.INDEX_BUF_CMD_3] = command[5];
-
-
-            bufferSend[indexByteLoad] = CksumCompute(bufferSend);
-
-            byte[] array1 = new byte[indexByteLoad + 1];
-
-            for (ushort i = 0; i < indexByteLoad + 1; i++)
-            {
-                array1[i] = bufferSend[i];
-            }
-
-            indexByteLoad = cmdRW.INDEX_BUF_CONTB;
-
-            return array1;
-        }
-
-        private bool CostructBuff(byte[] obj)
-        {
-            if (obj == null)
-            {
-                return false;
-            }
-
-            long length_buffer = cmdRW.INDEX_BUF_CONTB + obj.Length + 1;
-            bufferSend = new byte[length_buffer];
-
-            for (ushort i = 0; i < obj.Length; i++)
-            {
-                bufferSend[indexByteLoad] = obj[i];
-                indexByteLoad++;
-            }
-
-            initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;
-
-            return true;
-
-        }
+        
 
 //         private byte[]? ToBytesArray(object obj)
 //         {
@@ -303,47 +305,44 @@ namespace webapi
             return (T)_template;
         }
 
-        private T CombinaMultiVar<T>(byte[] buff_extract, object object_template)
+        private static Tuple<T?, int> CombinaMultiVar<T>(int index_now, byte[] buff_extract, T object_template)
         {
-
             T _template = default(T);
 
-            long buff_size = buff_size = Marshal.SizeOf(object_template.GetType());
-            
+            int buff_size = Marshal.SizeOf(object_template);
             byte[] buff_object = new byte[buff_size];
 
-            for (UInt16 i = 0; i < buff_size; i++)
+            for (int i = 0; i < buff_size; i++)
             {
-                buff_object[i] = buff_extract[initMultiVar];
-                initMultiVar++;
+                buff_object[i] = buff_extract[index_now];
+                index_now++;
             }
 
             GCHandle gcHandle = GCHandle.Alloc(buff_object, GCHandleType.Pinned);
             _template = (T)Marshal.PtrToStructure(gcHandle.AddrOfPinnedObject(), typeof(T));
             gcHandle.Free();
 
-            return _template;
-            
+            return Tuple.Create(_template, index_now);
         }
 
-        private byte[] CombinaMultiVarArr(byte[] buff_extract)
-        {
+        // private byte[] CombinaMultiVarArr(byte[] buff_extract)
+        // {
 
-            //byte[] buff_object = new byte[buff_extract.Length - 12];
+        //     //byte[] buff_object = new byte[buff_extract.Length - 12];
 
-            for (byte i = 0; i < buff_extract.Length; i++)
-            {
-                //buff_extract[i] = buff_extract[initMultiVar];
-                initMultiVar++;
-            }
+        //     for (byte i = 0; i < buff_extract.Length; i++)
+        //     {
+        //         //buff_extract[i] = buff_extract[initMultiVar];
+        //         initMultiVar++;
+        //     }
 
-            return buff_extract;
-        }
+        //     return buff_extract;
+        // }
 
-        void EndCombinaMultiVar()
-        {
-            initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;
-        }
+        // void EndCombinaMultiVar()
+        // {
+        //     initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;
+        // }
 
         private bool cksumTest(byte[] buff)
         {
@@ -395,8 +394,7 @@ namespace webapi
             return startIndex + source.Length;
         }*/
 
-        private Task<ChannelTeensyMessage> 
-        analBuff(byte[] mybuffdata)
+        private Task<ChannelTeensyMessage> analBuff(byte[] mybuffdata)
         {
             TeensyMessage _teensyMessage = new TeensyMessage(mybuffdata);
 
@@ -473,18 +471,22 @@ namespace webapi
 
                                             if (wayPoint_bytes != null)
                                             {
-                                                CostructBuff(wayPoint_bytes);
+                                                byte[]? constructed = ConstructBuff(wayPoint_bytes);
 
-                                                byte[] command = [cmdRW.ID_WEBAPP,
+                                                if(constructed != null)
+                                                {
+                                                    byte[] command = [cmdRW.ID_WEBAPP,
                                                     cmdRW.ID_MODULO_BASE,
                                                     cmdRW.ID_MODULO_BASE,
                                                     cmdRW.RESPONSE_CMD1,
                                                     cmdRW.SAVE_MISSION_CMD2,
                                                     cmdRW.SAVE_MISSION_WP_CMD3];
 
-                                                byte[] newCommand = SendCostructBuff(command);
+                                                    byte[] newCommand = SendConstructBuff(command, constructed);
 
-                                                return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
+                                                    return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
+                                                }
+
                                             }
 
                                             if (nWP_now == wayPoints.Count)
@@ -521,18 +523,25 @@ namespace webapi
                             {
 
 
-                                byte[] array_data = new byte[255];
+                                
 
                                 UInt16 fileCount = 0;
                                 UInt16 index_buff = 0;
 
-                                fileCount =  CombinaMultiVar<UInt16>(bufferDataOnly, fileCount);
-                                index_buff = CombinaMultiVar<UInt16>(bufferDataOnly, index_buff);
-                                array_data = CombinaMultiVarArr(bufferDataOnly.Skip((Marshal.SizeOf(fileCount) * 2)).ToArray());
+                                int index_counter_buffer = 0;
 
+                                Tuple<UInt16, int> fileCount_result = CombinaMultiVar<UInt16>(index_counter_buffer, bufferDataOnly, fileCount);
+                                fileCount = fileCount_result.Item1;
+                                index_counter_buffer = fileCount_result.Item2;
 
-                            
-                                EndCombinaMultiVar();
+                                Tuple<UInt16, int> index_buff_result = CombinaMultiVar<UInt16>(index_counter_buffer, bufferDataOnly, index_buff);
+                                index_buff = index_buff_result.Item1;
+                                
+                                
+                                byte[] array_data = new byte[bufferDataOnly.Length - Marshal.SizeOf(fileCount) * 2];
+                                //array_data = bufferDataOnly.Skip(Marshal.SizeOf(fileCount) * 2).ToArray();
+
+                                Array.Copy(bufferDataOnly, Marshal.SizeOf(fileCount * 2), array_data, 0, array_data.Length);
 
                                 string fileName = "";
                                 byte fileNameIndex = 0;
@@ -587,12 +596,10 @@ namespace webapi
                                     }
                                 }
 
+                             
 
                                 string json = JsonConvert.SerializeObject(root, Formatting.Indented);
-                                byte[] _dataSend = SeriaDataAndReturn("DTree", json);
-
-                                //return Task.FromResult(new NeedData());
-
+                                return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
 
                                 //HANDLE HERE IF STRUCTURE IS BIGGER THAN 255 BYTES
                                 //HANDLE DIFFERENT FROM WHAT THEY DID SO INSTANCE DOES NOT RETURN PARTIAL DATA
@@ -612,7 +619,7 @@ namespace webapi
 
                                 }*/
                                 
-                                return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
+                               // return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
 
                             }
 
@@ -676,11 +683,14 @@ namespace webapi
                                     nWP_now = 0;
                                     byte[] wpbyte = BitConverter.GetBytes(nWP_now);
 
-                                    CostructBuff(wpbyte);
-                                    byte[] newCommand = SendCostructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3]);
+                                    byte[]? message_payload = ConstructBuff(wpbyte);
 
+                                    if(message_payload != null)
+                                    {
+                                        byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
+                                        return Task.FromResult(new ChannelTeensyMessage("MMW", newCommand, true, json));
+                                    }
                                     
-                                    return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true, json));
 
                                     //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("MMW", json),  data_command = newCommand, NeedAnswer = true });
 
@@ -703,11 +713,15 @@ namespace webapi
                                         if (nWP_now < totalWaypoints)
                                         {
                                             byte[] wpbyte = BitConverter.GetBytes(nWP_now);
-                                            CostructBuff(wpbyte);
-                                            byte[] newCommand = SendCostructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3]);
+                                            
+                                            byte[]? message_payload = ConstructBuff(wpbyte);
 
-                                            return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
-
+                                            if(message_payload != null)
+                                            {
+                                                byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
+                                                return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
+                                            }
+                                            
                                         }
                                         else
                                         {
@@ -816,10 +830,7 @@ namespace webapi
                                     ImuData imuData = CombinaVar<ImuData>(bufferDataOnly);
                                    
                                     string json_data = JsonConvert.SerializeObject(imuData);
-
-                                    //byte[] _dataSend = SeriaDataAndReturn("ImuData", System.Text.Json.JsonSerializer.Serialize(imuData));
                                     return Task.FromResult(new ChannelTeensyMessage("ImuData", null, false, json_data));
-                                    //return Task.FromResult(new ChannelTeensyMessage() { data_in = _dataSend, NeedPreparation = false});
                                 }
                                 
 

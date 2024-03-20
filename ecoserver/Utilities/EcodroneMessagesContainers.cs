@@ -14,6 +14,7 @@ public class TeensyMessageContainer
     public string IdContainer { get; }
     public byte[] CommandId { get; }
     public bool NeedPreparation { get; }
+    public string? IdClient {get; set;}
 
     public TeensyMessageContainer(string idContainer, byte[] commandId, bool needPreparation = true)
     {
@@ -25,12 +26,9 @@ public class TeensyMessageContainer
 
 public class ChannelTeensyMessage
 {
-    //data parsed
-    //public byte[]? data_in { get; set; } = null;
-    //data when command needs ping pong
+    public string? id_client {get; set;}
     public string message_id {get; set;} = "NNN";
     public byte[]? data_command { get; set; } = null;
-    //needs ping pong? just confirm it's a double check
     public bool needAnswer { get; set; } = false;
     public string data_message {get; set;}
     public ChannelTeensyMessage(string id_message, byte[]? _newCommand = null, bool _needAnswer = false, string message_data = "NNN")
@@ -44,8 +42,23 @@ public class ChannelTeensyMessage
 
 public static class EcodroneMessagesContainers
 {
+    public static ClientCommunicationStates CheckAllowedContainer(string data_id)
+    {
+        Dictionary<ClientCommunicationStates, List<string>> allowed_containers = new Dictionary<ClientCommunicationStates, List<string>>
+        {
+            { ClientCommunicationStates.MISSIONS, new List<string>() { "DTree", "MMW", "AllWayPoints" } },
+            { ClientCommunicationStates.SENSORS_DATA, new List<string>() { "ImuData" } },
+            { ClientCommunicationStates.WAYPOINT, new List<string>() { "UpMission" } }
+            
+        };  
+
+        return allowed_containers.SingleOrDefault(x => x.Value.Contains(data_id)).Key;
+    }
+
+    
     public static List<TeensyMessageContainer> GenerateRequestFunct()
     {
+        
         List<TeensyMessageContainer> _containers_message = new List<TeensyMessageContainer>();
         
         _ = new cmdRW();
@@ -59,6 +72,7 @@ public static class EcodroneMessagesContainers
             cmdRW.IMU_GET_CMD2,
             cmdRW.IMU_RPY_ACC_CMD3
         ]);
+
 
         _containers_message.Add(imuMessage);
 

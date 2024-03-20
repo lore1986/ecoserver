@@ -8,3 +8,4 @@ public class EcodroneBoatMessage
     public object? data { get; set; }
 
 }
+

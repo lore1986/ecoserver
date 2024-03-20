@@ -40,46 +40,40 @@ public class EcodroneTeensyInstance
         });
 
     }
-
-    public async Task StartTeensyTalk()
+    private async Task GetCommandWriteChannel(ChannelTeensyMessage channelData)
     {
-        using (_teensySocket = new TcpClient(ecodroneBoat._IPTeensy, ecodroneBoat._PortTeensy))
+        if (channelData.data_message != null && channelData.data_message != "NNN")
         {
-            using (_networkStream = _teensySocket.GetStream())
-            {
-                while (_teensySocket.Connected && !cts_teensy.IsCancellationRequested)
-                {
-                    if(command_task_que.Count > 0)
-                    {
-                        while(command_task_que.Count > 0)
-                        {
-                            //commands to teensy 
-                            //step one send command to teensy and read answer
-                            ChannelTeensyMessage channelMessage = await TalkToTeensyAsync(command_task_que[0]);
-                            //remove command from original list of commands
-                            command_task_que.RemoveAt(0);
-                            //write the message on the channel to be read
-                            GetCommandWriteChannel(channelMessage);
-                        }
-                        
-                    }else
-                    {
-                        command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
-                    }
-                }
-
-                _networkStream.Close();
-                _networkStream.Dispose();
-                _teensySocket.Close();
-                _teensySocket.Dispose();
-
-            }
+            await channelTeensy.Writer.WriteAsync(channelData, cts_teensy);
         }
+
+        if (channelData.data_command != null && channelData.needAnswer)
+        {
+            TeensyMessageContainer newMessageContainer = new TeensyMessageContainer(channelData.message_id, channelData.data_command, needPreparation: false);
+            
+            if(channelData.id_client != null && channelData.id_client != "NNN")
+            {
+                newMessageContainer.IdClient = channelData.id_client;
+                
+            }else
+            {
+                newMessageContainer.IdClient = "NNN";
+            }
+
+            command_task_que.Add(newMessageContainer);
+
+        }
+
     }
 
     private async Task<ChannelTeensyMessage> TalkToTeensyAsync(TeensyMessageContainer m_cont)
     {
         ChannelTeensyMessage channelMessage = new ChannelTeensyMessage("empty");
+
+        if(m_cont.IdContainer == "UpMission")
+        {
+            Debug.WriteLine("container ");
+        }
 
         byte[] data = m_cont.CommandId;
 
@@ -94,6 +88,11 @@ public class EcodroneTeensyInstance
             
             channelMessage = await _teensyLibParser.ReadBufferAsync(_networkStream);
 
+            if(m_cont.IdClient != null && m_cont.IdClient != "NNN")
+            {
+                channelMessage.id_client = m_cont.IdClient;
+            }
+            
             return channelMessage;
             
         }
@@ -105,23 +104,48 @@ public class EcodroneTeensyInstance
         return channelMessage;
     }
 
-    private void GetCommandWriteChannel(ChannelTeensyMessage channelData)
+
+    public async Task StartTeensyTalk()
     {
-        if (channelData.data_message != null)
+        using (_teensySocket = new TcpClient(ecodroneBoat._IPTeensy, ecodroneBoat._PortTeensy))
         {
-            channelTeensy.Writer.WriteAsync(channelData, cts_teensy);
+            using (_networkStream = _teensySocket.GetStream())
+            {
+                while (_teensySocket.Connected && !cts_teensy.IsCancellationRequested)
+                {
+                    
+                    while(command_task_que.Count > 0)
+                    {
+                        //commands to teensy 
+                        //step one send command to teensy and read answer
+                        ChannelTeensyMessage channelMessage = await TalkToTeensyAsync(command_task_que[0]);
+                        //remove command from original list of commands
+                        command_task_que.RemoveAt(0);
+                        //write the message on the channel to be read
+                        await GetCommandWriteChannel(channelMessage);
+                        await Task.Delay(20);
+                    }
+
+                    command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
+                    //USE SIGNAL TO DO THIS ONCHANGE STATE WITH A DELEGATE FROM BoatClientAppStateManager or maybe change position of this function
+                    // int connected_clients = ecodroneBoat._boatclients.Where(x => x.appState == ClientCommunicationStates.SENSORS_DATA).Count();
+                    // if(connected_clients != 0)
+                    // {
+                        
+                    // }
+                }
+
+                _networkStream.Close();
+                _networkStream.Dispose();
+                _teensySocket.Close();
+                _teensySocket.Dispose();
+
+            }
         }
-
-        //if there is a new issued command then add it to the list of tasks at position 0
-        if (channelData.data_command != null && channelData.needAnswer)
-        {
-            command_task_que.Add(
-                new TeensyMessageContainer("new_internal_data", channelData.data_command, needPreparation: false)
-            );
-
-        }
-
     }
+
+    
+    
 
     public ChannelTeensyMessage? ReadOnChannel()
     {
