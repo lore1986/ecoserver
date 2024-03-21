@@ -28,7 +28,10 @@ public class EcodroneBoat
     public CancellationTokenSource src_cts_boat = new CancellationTokenSource();
     public CancellationToken cts_boat {get; private set;}
 
+    public Semaphore semaphore = new Semaphore(1,1);
 
+    public CancellationTokenSource src_cts_block_listening = new CancellationTokenSource();
+    public CancellationToken cts_block_listening = new CancellationToken();
     public EcodroneBoat(string _maskedid, byte[] sync, string IPT, int PT, bool setActive = false)
     {
         if(sync.Length != 3) { throw new ArgumentException("teensy sync not valid");}
@@ -91,7 +94,7 @@ public class EcodroneBoat
                     HttpListenerContext context = listener.EndGetContext(result);
                     HttpListenerWebSocketContext websocket_context = await context.AcceptWebSocketAsync(null, new TimeSpan(1000));
                     
-                    EcoClient? new_client = new EcoClient();
+                    EcoClient? new_client = new EcoClient(teensySocketInstance);
 
                     new_client.main_task = new Task (async () => { await HandlingClient(websocket_context.WebSocket, new_client); }, new_client.cts_client);
                     new_client.main_task.Start();
@@ -112,7 +115,7 @@ public class EcodroneBoat
         }
     }
 
-    public async Task HandlingClient(WebSocket webSocket, EcoClient? ecoClient) 
+    public async Task HandlingClient(WebSocket webSocket, EcoClient ecoClient) 
     {
         if(ecoClient != null)
         {
@@ -120,23 +123,37 @@ public class EcodroneBoat
             {
                 if(ecoClient != null && ecoClient.IdClient != "NNN")
                 {
-
-                    //block is here
-                    Tuple<string, Task> listen_task = Tuple.Create("listen_task", Task.Run(() => ecoClient.ReadWebSocket(webSocket, ecoClient, this)));
-
-                    while(!listen_task.Item2.IsCompleted && !ecoClient.cts_client.IsCancellationRequested)
-                    {
- 
-                        if(ecoClient.appState == ClientCommunicationStates.SENSORS_DATA || ecoClient.appState == ClientCommunicationStates.MISSIONS)
+                    //semaphore.WaitOne();
+                    try{
+                        Debug.WriteLine($"ecoclient before: {ecoClient.IdClient}");
+                        //block is here
+                        ecoClient.taskina =  Task.Run(() => ecoClient.ReadWebSocket(webSocket, this));
+                        
+                        while (!ecoClient.taskina.IsCompleted)
                         {
-                            await ecoClient.TeensyChannelReadAndSend(this);
+                            
                         }
+                        // while (!ecoClient.taskina.IsCompleted)
+                        // {
+                        //    await ecoClient.TeensyChannelReadAndSend(this);
+                        // }
+                        
+                        // if (ecoClient.cts_block_listening.IsCancellationRequested)
+                        // {
+                        //     src_cts_block_listening = CancellationTokenSource.CreateLinkedTokenSource(cts_block_listening);
+                        // }
+                        
+
+                    }finally
+                    {
+                        //semaphore.Release();
                     }
+                    
                     
                 }else
                 {
                     //here authenticate if not already 
-                    ecoClient = await ReadFirstMessage(webSocket);
+                    await ReadFirstMessage(webSocket, ecoClient);
 
                     if(ecoClient.IdClient == "NNN")
                     {
@@ -206,13 +223,9 @@ public class EcodroneBoat
         return true;
     }
 
-    private async Task<EcoClient> ReadFirstMessage(WebSocket _webSocket)
+    private async Task<EcoClient> ReadFirstMessage(WebSocket _webSocket, EcoClient _client)
     {
-        EcoClient _client = new EcoClient()
-        {
-            IdClient = "NNN"
-        };
-
+       
         var buffer = new byte[1024 * 4];
         var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 

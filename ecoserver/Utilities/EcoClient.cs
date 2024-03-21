@@ -22,19 +22,25 @@ public class EcoClient
     public CancellationToken cts_client {get; private set;}
 
     public Task? main_task {get; set;}
+    public Task? taskina {get; set;}
+    public Task? taskone {get; set;}
     public List<Tuple<string, Task>> client_listen_task = new List<Tuple<string, Task>>();
 
     public EcoClientRole ecoClientRole = EcoClientRole.Admin;
+    // public CancellationTokenSource src_cts_block_listening;
+    // public CancellationToken cts_block_listening = new CancellationToken();
 
-    public EcoClient()
+    public bool isListening = true;
+    public EcoClient(EcodroneTeensyInstance ecodroneTeensyInstance)
     {
         cts_client = src_cts_client.Token;
+        //src_cts_block_listening = CancellationTokenSource.CreateLinkedTokenSource(cts_block_listening);
+        ecodroneTeensyInstance.signalBusSocket.Subscribe(TeensyChannelReadAndSend, IdClient);
     }
 
-    public async Task TeensyChannelReadAndSend(EcodroneBoat ecodroneBoat)
+    public void TeensyChannelReadAndSend(ChannelTeensyMessage messageTeensy)
     {
-        ChannelTeensyMessage? messageTeensy = ecodroneBoat.teensySocketInstance.ReadOnChannel();
-
+        
         //ABSOLUTELY FIND A WAY TO DO TO AVOID MESSAGGING CLIENT WITHOUT SENSE
         // && messageTeensy.id_client != null && messageTeensy.id_client == IdClient
 
@@ -111,15 +117,15 @@ public class EcoClient
                     }
 
                     
-                    ecodroneBoatMessage.uuid = ecodroneBoat.maskedId;
+                    ecodroneBoatMessage.uuid = "ecodrone_boatone";
                     ecodroneBoatMessage.direction = IdClient;
                     ecodroneBoatMessage.identity = messageTeensy.message_id;
                     ecodroneBoatMessage.data = messageTeensy.data_message;
 
                     string message_serialized = JsonConvert.SerializeObject(ecodroneBoatMessage, Formatting.Indented); 
-                    Debug.WriteLine("message serialized teensy ", message_serialized);
+                    //Debug.WriteLine("message serialized teensy ", message_serialized);
                     var messageToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message_serialized));
-                    await _socketClient.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
+                    _socketClient.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
                     
                 }
 
@@ -301,92 +307,76 @@ public class EcoClient
 
     }
 
-    public async Task ReadWebSocket(WebSocket _webSocket, EcoClient? ecoClient, EcodroneBoat boat)
+    public async Task ReadWebSocket(WebSocket _webSocket, EcodroneBoat boat)
     {
-        if(ecoClient != null)
+        var buffer = new byte[1024 * 4];
+        var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+        byte message_scope = buffer[0];
+    
+        if(boat.IsCorrectByte(message_scope))
         {
-            var buffer = new byte[1024 * 4];
-            var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            
+            byte[] message_length = new byte[4];
+            byte[] byte_message = new byte[receiveResult.Count - 4];
+            
+            Array.Copy(buffer, 1, message_length, 0, message_length.Length);
+            Array.Copy(buffer, 5, byte_message, 0, byte_message.Length);
 
-            byte message_scope = buffer[0];
-        
-            if(boat.IsCorrectByte(message_scope))
+            if (BitConverter.IsLittleEndian)
             {
-                
-                byte[] message_length = new byte[4];
-                byte[] byte_message = new byte[receiveResult.Count - 4];
-                
-                Array.Copy(buffer, 1, message_length, 0, message_length.Length);
-                Array.Copy(buffer, 5, byte_message, 0, byte_message.Length);
+                Array.Reverse(message_length); // Reverse the byte array if the system is little-endian
+            }
+            
+            EcodroneBoatMessage? message = JsonConvert.DeserializeObject<EcodroneBoatMessage>(Encoding.UTF8.GetString(byte_message));
 
-                if (BitConverter.IsLittleEndian)
+            switch (message_scope)
+            {
+                case 72: //W
                 {
-                    Array.Reverse(message_length); // Reverse the byte array if the system is little-endian
+                    if(message.data != null)
+                    {
+                        // VERIFY ID CLIENT TO IMPLEMENT
+                        //UPLOADING MISSIONS IS A SENSIBLE TASK
+                        GotCommand(message, boat, this);
+                    }
                 }
-                
-                EcodroneBoatMessage? message = JsonConvert.DeserializeObject<EcodroneBoatMessage>(Encoding.UTF8.GetString(byte_message));
-
-                switch (message_scope)
+                break;
+                case 77: //M
                 {
-                    case 72: //W
+                    if(message.data != null)
                     {
-                        if(message != null)
-                        {
-                            if(message.data != null)
-                            {
-                                // VERIFY ID CLIENT TO IMPLEMENT
-                                //UPLOADING MISSIONS IS A SENSIBLE TASK
-                                GotCommand(message, boat, ecoClient);
-                            }
-                        }
+                        HandleMissionCommand(message, boat, this);
                     }
-                    break;
-                    case 77: //M
-                    {
-                        if(message != null)
-                        {
-                            if(message.data != null)
-                            {
-                                HandleMissionCommand(message, boat, ecoClient);
-                            }
-                        }
-                    }
-                    break;
-                    case 86 : //V
-                    {
-                        if(ecoClient != null)
-                        {
-                            if(message != null)
-                            {
-                                ecoClient.VideoCommunication(message, boat);
-                            }   
-                        }
-                    }
-                    break;
-                    case 83: //S
-                    {
-                        if(ecoClient != null)
-                        {
-                                                    
-                            if(message != null)
-                            {
-                                ecoClient.BoatClientAppStateManager(message, boat);
-                            }   
-                        }
-                        
-
-                    }
-                    break;
-                    default:
-                    //store in variable or discard if message is not full
-                    {
-                        // if(_ecoClient != null)
-                        // {
-                        //     await TeensyChannelReadAndSend(_ecoClient);
-                        // }
-                    }
-                    break;
                 }
+                break;
+                case 86 : //V
+                {
+                    if(message != null)
+                    {
+                        VideoCommunication(message, boat);
+                    }
+                }
+                break;
+                case 83: //S
+                {
+                    if(message != null)
+                        {
+                            BoatClientAppStateManager(message, boat);
+                        } 
+                    
+
+                }
+                break;
+                default:
+                //store in variable or discard if message is not full
+                {
+                    // if(_ecoClient != null)
+                    // {
+                    //     await TeensyChannelReadAndSend(_ecoClient);
+                    // }
+                }
+                break;
             }
         }
         
@@ -532,7 +522,7 @@ public class EcoClient
                 TeensyMessageContainer tmessage = new TeensyMessageContainer("UpMission", teensy_message_ready
                 , true)
                 {
-                    IdClient = ecoclient.IdClient
+                    IdClient = IdClient
                 };
 
                 boat.teensySocketInstance.command_task_que.Add(tmessage);
@@ -544,9 +534,9 @@ public class EcoClient
        
     } 
 
-    private void HandleMissionCommand(EcodroneBoatMessage stateMessage, EcodroneBoat boat, EcoClient? ecoClient)
+    private async void HandleMissionCommand(EcodroneBoatMessage stateMessage, EcodroneBoat boat, EcoClient? ecoClient)
     {
-        if(stateMessage.scope != 'M' || ecoClient == null ||ecoClient.ecoClientRole != EcoClientRole.Admin)
+        if(stateMessage.scope != 'M' || ecoClient == null ||ecoClientRole != EcoClientRole.Admin)
         {
             return;
         }else
@@ -570,7 +560,7 @@ public class EcoClient
                         0x00
                     ], true)
                     {
-                        IdClient = ecoClient.IdClient
+                        IdClient = IdClient
                     };
 
                     boat.teensySocketInstance.command_task_que.Add(tmessage);
@@ -602,10 +592,19 @@ public class EcoClient
                         TeensyMessageContainer tmessage = new TeensyMessageContainer("MMW", total_command
                         , true)
                         {
-                            IdClient = ecoClient.IdClient
+                            IdClient = IdClient
                         };
 
                         boat.teensySocketInstance.command_task_que.Add(tmessage);
+
+                        // for (int i = 0; i < boat._boatclients.Count; i++)
+                        // {
+                        //     if(boat._boatclients[i].IdClient != IdClient)
+                        //     {
+                        //         boat._boatclients[i].src_cts_block_listening.Cancel();
+
+                        //     }
+                        // }
                     }
                 }
                 break;

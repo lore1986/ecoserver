@@ -17,8 +17,8 @@ public class EcodroneTeensyInstance
     
     public List<TeensyMessageContainer> command_task_que;
     public ITeensyMessageConstructParser _teensyLibParser { get; private set; }
-    public Channel<ChannelTeensyMessage> channelTeensy { get; set; }
-    
+    //public Channel<ChannelTeensyMessage> channelTeensy { get; set; }
+    public SignalBusSocket signalBusSocket  = new SignalBusSocket();
 
     //public JetsonSocketHandler jetsonSocket {  get; set; }
 
@@ -32,19 +32,20 @@ public class EcodroneTeensyInstance
         _teensyLibParser =  new TeensyMessageConstructParser();
         command_task_que = EcodroneMessagesContainers.GenerateRequestFunct();
 
-        channelTeensy = Channel.CreateUnbounded<ChannelTeensyMessage>(new UnboundedChannelOptions
-        {
-            SingleWriter = false,
-            SingleReader = false,
-            AllowSynchronousContinuations = true
-        });
+        // channelTeensy = Channel.CreateUnbounded<ChannelTeensyMessage>(new UnboundedChannelOptions
+        // {
+        //     SingleWriter = false,
+        //     SingleReader = false,
+        //     AllowSynchronousContinuations = true
+        // });
 
     }
-    private async Task GetCommandWriteChannel(ChannelTeensyMessage channelData)
+    private void GetCommandWriteChannel(ChannelTeensyMessage channelData)
     {
         if (channelData.data_message != null && channelData.data_message != "NNN")
         {
-            await channelTeensy.Writer.WriteAsync(channelData, cts_teensy);
+            signalBusSocket.Publish(channelData);
+            //await channelTeensy.Writer.WriteAsync(channelData, cts_teensy);
         }
 
         if (channelData.data_command != null && channelData.needAnswer)
@@ -122,7 +123,7 @@ public class EcodroneTeensyInstance
                         //remove command from original list of commands
                         command_task_que.RemoveAt(0);
                         //write the message on the channel to be read
-                        await GetCommandWriteChannel(channelMessage);
+                        GetCommandWriteChannel(channelMessage);
                         await Task.Delay(20);
                     }
 
@@ -147,16 +148,16 @@ public class EcodroneTeensyInstance
     
     
 
-    public ChannelTeensyMessage? ReadOnChannel()
-    {
-        if(channelTeensy.Reader.Count != 0)
-        {
-            ChannelTeensyMessage? channelRead;
-            channelTeensy.Reader.TryRead(out channelRead);
+    // public ChannelTeensyMessage? ReadOnChannel()
+    // {
+    //     if(channelTeensy.Reader.Count != 0)
+    //     {
+    //         ChannelTeensyMessage? channelRead;
+    //         channelTeensy.Reader.TryRead(out channelRead);
             
-            return channelRead;
-        }
+    //         return channelRead;
+    //     }
 
-        return null;
-    }
+    //     return null;
+    // }
 }
