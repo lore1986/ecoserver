@@ -120,6 +120,8 @@ public class EcodroneBoat
             {
                 if(ecoClient != null && ecoClient.IdClient != "NNN")
                 {
+
+                    //block is here
                     Tuple<string, Task> listen_task = Tuple.Create("listen_task", Task.Run(() => ecoClient.ReadWebSocket(webSocket, ecoClient, this)));
 
                     while(!listen_task.Item2.IsCompleted && !ecoClient.cts_client.IsCancellationRequested)
