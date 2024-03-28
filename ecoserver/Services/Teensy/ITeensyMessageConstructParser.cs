@@ -6,7 +6,7 @@ namespace webapi
     public interface ITeensyMessageConstructParser
     {
         byte[] PrepareTeensyRequest(byte[] c);
-        Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream nS);
+        Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream nS, string idclient);
         void UpdateListWayPoints(List<WayPoint> wayPoints);
         
     }

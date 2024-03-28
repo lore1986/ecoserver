@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace webapi.Controllers 
 {
-    [Route("service/[controller]")]
+    [Route("/service/[controller]")]
     [ApiController]
     public class BoatServiceController : ControllerBase
     {
@@ -51,9 +51,10 @@ namespace webapi.Controllers
 
             if(_ecodroneBoat != null)
             {
-                bool s  = await _ecodroneBoat.DeactivateBoat();
-                
-                _activeBoatTracker.RemoveEcodroneBoatInstance(boatid);
+               bool var_result = _activeBoatTracker.RemoveEcodroneBoatInstance(boatid);
+
+               if(!var_result)
+               {throw new Exception("something wrong in closing");};
             }
             
             return Ok();

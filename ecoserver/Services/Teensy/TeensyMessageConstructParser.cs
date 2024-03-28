@@ -147,11 +147,11 @@ namespace webapi
 
 
 
-        public async Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream? nS)
+        public async Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream? nS, string idclient)
         {
             if(nS == null)
             {
-                return new ChannelTeensyMessage("empty");
+                return new ChannelTeensyMessage("empty", "empty");
             }
 
             byte[] dataread = new byte[255];
@@ -225,7 +225,7 @@ namespace webapi
                         {
                             if (cksumTest(bufferRead))
                             {
-                                ChannelTeensyMessage teensyMessage =  await analBuff(bufferRead);
+                                ChannelTeensyMessage teensyMessage =  await analBuff(bufferRead, idclient);
                                 return teensyMessage;
                             }
                             else
@@ -238,7 +238,7 @@ namespace webapi
                 }
             }
 
-            return new ChannelTeensyMessage("empty");
+            return new ChannelTeensyMessage("empty","empty");
         }
 
         private byte CksumCompute(byte[] buff)
@@ -394,7 +394,7 @@ namespace webapi
             return startIndex + source.Length;
         }*/
 
-        private Task<ChannelTeensyMessage> analBuff(byte[] mybuffdata)
+        private Task<ChannelTeensyMessage> analBuff(byte[] mybuffdata, string idclient)
         {
             TeensyMessage _teensyMessage = new TeensyMessage(mybuffdata);
 
@@ -484,7 +484,7 @@ namespace webapi
 
                                                     byte[] newCommand = SendConstructBuff(command, constructed);
 
-                                                    return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
+                                                    return Task.FromResult(new ChannelTeensyMessage(idclient, "new_internal_data", newCommand, true));
                                                 }
 
                                             }
@@ -599,7 +599,7 @@ namespace webapi
                              
 
                                 string json = JsonConvert.SerializeObject(root, Formatting.Indented);
-                                return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
+                                return Task.FromResult(new ChannelTeensyMessage(idclient, "DTree", null, false, json));
 
                                 //HANDLE HERE IF STRUCTURE IS BIGGER THAN 255 BYTES
                                 //HANDLE DIFFERENT FROM WHAT THEY DID SO INSTANCE DOES NOT RETURN PARTIAL DATA
@@ -688,7 +688,7 @@ namespace webapi
                                     if(message_payload != null)
                                     {
                                         byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
-                                        return Task.FromResult(new ChannelTeensyMessage("MMW", newCommand, true, json));
+                                        return Task.FromResult(new ChannelTeensyMessage(idclient, "MMW", newCommand, true, json));
                                     }
                                     
 
@@ -719,7 +719,7 @@ namespace webapi
                                             if(message_payload != null)
                                             {
                                                 byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
-                                                return Task.FromResult(new ChannelTeensyMessage("new_internal_data", newCommand, true));
+                                                return Task.FromResult(new ChannelTeensyMessage(idclient, "new_internal_data", newCommand, true));
                                             }
                                             
                                         }
@@ -728,7 +728,7 @@ namespace webapi
                                             string json = JsonConvert.SerializeObject(wayPoints, Formatting.Indented);
                                             totalWaypoints = 0;
 
-                                            return Task.FromResult(new ChannelTeensyMessage("AllWayPoints", null, false, json));
+                                            return Task.FromResult(new ChannelTeensyMessage(idclient, "AllWayPoints", null, false, json));
                                             //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("AllWayPoints", json), data_command = null, NeedAnswer = true });
                                         }
 
@@ -830,7 +830,7 @@ namespace webapi
                                     ImuData imuData = CombinaVar<ImuData>(bufferDataOnly);
                                    
                                     string json_data = JsonConvert.SerializeObject(imuData);
-                                    return Task.FromResult(new ChannelTeensyMessage("ImuData", null, false, json_data));
+                                    return Task.FromResult(new ChannelTeensyMessage(idclient, "ImuData", null, false, json_data));
                                 }
                                 
 
@@ -1005,7 +1005,7 @@ namespace webapi
                 }
             }
 
-            return Task.FromResult(new ChannelTeensyMessage("empty")); 
+            return Task.FromResult(new ChannelTeensyMessage(idclient, "empty")); 
         }
 
     }
