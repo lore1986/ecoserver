@@ -17,25 +17,10 @@ namespace webapi
         public CancellationToken cts_jetson {get; private set;}
 
 
-
-        //  EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
-        //     {
-        //         scope = 'U',
-        //         type = "0",
-        //         uuid = ecoClient.IdClient,
-        //         direction = "jetson_id",
-        //         identity = ecoClient.IdClient,
-        //         data = "NNN"
-        //     };
-
-        //     _videoBusService.Publish(ecodroneBoatMessage);
-        //     _videoBusService.Unsubscribe(ecoClient.SerializeAndSendMessage, ecoClient.IdClient); 
-
-
-
         public VideoTcpListener(IVideoBusService videoBusService, int serviceport)
         {
             _jetsonClientListener = new TcpListener(IPAddress.Any, serviceport);
+
             _videoBusService = videoBusService;
             cts_jetson = src_cts_jetson.Token;
 
@@ -133,7 +118,6 @@ namespace webapi
         {
             //manage here if no video connected
             TcpClient newclient = _jetsonClientListener.EndAcceptTcpClient(ar);
-            
         
             if (newclient.Connected)
             {
@@ -144,6 +128,7 @@ namespace webapi
                         sock_et = newclient,
                         uuid = "jetson_id"
                     };
+                    
                     await TaskJetson();
                 }, cts_jetson);
 

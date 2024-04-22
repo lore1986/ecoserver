@@ -5,7 +5,7 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.UseUrls("http://localhost:5001/"); 
+builder.WebHost.UseUrls("https://localhost:5001/"); 
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -23,10 +23,10 @@ builder.Services.AddSingleton<IActiveBoatTracker, ActiveBoatTracker>();
 
 
 var app = builder.Build();
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto // ---->
-});
+// app.UseForwardedHeaders(new ForwardedHeadersOptions
+// {
+//     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto // ---->
+// });
 
 
 app.UseSwagger();
@@ -46,7 +46,7 @@ app.UseWebSockets(webSocketOptions);
 app.UseRouting();
 app.MapControllers();
 
-//app.UseHttpsRedirection(); // ---->
+app.UseHttpsRedirection(); // ---->
 app.UseStaticFiles();
 
 app.UseCors((options) =>

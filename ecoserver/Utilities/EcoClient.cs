@@ -15,25 +15,74 @@ public enum EcoClientRole
 public class EcoClient
 {
     public string IdClient { get; set; } = "NNN";
-    public WebSocket? _socketClient {get; set;}
+    public WebSocket _socketClient {get; set;}
     public ClientCommunicationStates appState = ClientCommunicationStates.SENSORS_DATA;
 
-    // public CancellationTokenSource src_cts_client = new CancellationTokenSource();
-    // public CancellationToken cts_client {get; private set;}
+    public CancellationTokenSource src_cts_client = new CancellationTokenSource();
+    public CancellationToken cts_client {get; private set;}
     public Task? taskina {get; set;}
     public EcoClientRole ecoClientRole = EcoClientRole.Admin;
     public EcodroneBoat ecodroneBoat {get; private set;}
+    
 
     public bool isListening = true;
-    public EcoClient(EcodroneBoat _ecodroneBoat)
+    public EcoClient(EcodroneBoat _ecodroneBoat, WebSocket socket)
     {
         // cts_client = src_cts_client.Token;
         ecodroneBoat = _ecodroneBoat;
+        _socketClient = socket;
+        taskina = Task.Run(GetOwnershipOfWebSocket);
+        IdClient = Guid.NewGuid().ToString();
         //src_cts_block_listening = CancellationTokenSource.CreateLinkedTokenSource(cts_block_listening);
         
     }
 
-    public void TeensyReadAndSend(ChannelTeensyMessage messageTeensy)
+    public async Task GetOwnershipOfWebSocket() 
+    {
+    
+        await SendFirstMessage();
+        ecodroneBoat.signalBusSocket.Subscribe(TeensyReadAndSend, this);
+
+        while (_socketClient.State == WebSocketState.Open && !cts_client.IsCancellationRequested)
+        {
+            var buffer = new byte[1024 * 4];
+            WebSocketReceiveResult receiveResult = await _socketClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+            ReadClientSocket(buffer,receiveResult.Count);
+        }
+
+        await _socketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
+        _socketClient.Dispose();
+
+        //please check if remove happen these are different task maybe implement signal or message on bus
+        ecodroneBoat._boatclients.Remove(this); 
+
+    }
+
+    
+    private async Task SendFirstMessage()
+    {
+       
+        EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
+        {
+            scope = 'U',
+            type = "1",
+            uuid = ecodroneBoat.maskedId,
+            direction = IdClient,
+            identity = IdClient,
+            data = null
+        };
+
+        string message_serialized = JsonConvert.SerializeObject(ecodroneBoatMessage);
+        Debug.WriteLine(message_serialized);
+        var messageToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message_serialized));
+
+        await _socketClient.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
+
+        
+    }
+
+    public void TeensyReadAndSend(SignalBusMessage messageTeensy)
     {
         if (messageTeensy.data_message != "NNN")
         {
@@ -46,7 +95,7 @@ public class EcoClient
                     case ClientCommunicationStates.SENSORS_DATA:
                     {
                         
-                        if(appState == EcodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id))
+                        if(appState == ecodroneBoat.ecodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id))
                         {
                             ecodroneBoatMessage.scope = 'D';
                             ecodroneBoatMessage.type = "1"; 
@@ -60,7 +109,7 @@ public class EcoClient
                     case ClientCommunicationStates.MISSIONS:
                     {
                         
-                        if(appState == EcodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id)) 
+                        if(appState == ecodroneBoat.ecodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id)) 
                         {
                             switch (messageTeensy.message_id)
                             {
@@ -88,7 +137,7 @@ public class EcoClient
                     break;
                     case ClientCommunicationStates.WAYPOINT:
                     {
-                        if(appState == EcodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id)) // && messageTeensy.id_client != null && messageTeensy.id_client == IdClient
+                        if(appState == ecodroneBoat.ecodroneMessagesContainers.CheckAllowedContainer(messageTeensy.message_id)) // && messageTeensy.id_client != null && messageTeensy.id_client == IdClient
                         {
                             ecodroneBoatMessage.scope = 'W';
                             ecodroneBoatMessage.type = "1";
@@ -292,21 +341,19 @@ public class EcoClient
 
     }
 
-    public async Task ReadWebSocket(WebSocket _webSocket, EcodroneBoat boat)
+    public void ReadClientSocket(byte[] bugger, int receiveResultCount)
     {
-        var buffer = new byte[1024 * 4];
-        var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-        byte message_scope = buffer[0];
+        
+        byte message_scope = bugger.First();
     
-        if(boat.IsCorrectByte(message_scope))
+        if(ecodroneBoat.IsCorrectByte(message_scope))
         {
             
             byte[] message_length = new byte[4];
-            byte[] byte_message = new byte[receiveResult.Count - 4];
+            byte[] byte_message = new byte[receiveResultCount - 4];
             
-            Array.Copy(buffer, 1, message_length, 0, message_length.Length);
-            Array.Copy(buffer, 5, byte_message, 0, byte_message.Length);
+            Array.Copy(bugger, 1, message_length, 0, message_length.Length);
+            Array.Copy(bugger, 5, byte_message, 0, byte_message.Length);
 
             if (BitConverter.IsLittleEndian)
             {
@@ -317,9 +364,12 @@ public class EcoClient
             
             if(message != null)
             {
-                int countclients = ecodroneBoat._boatclients.Count(x => x.Key.appState != ClientCommunicationStates.VIDEO);
-                if(countclients == 0 && message_scope != 86)
-                { ecodroneBoat.RestartTeensyTalkSignal();}
+
+                
+                //int countclients = ecodroneBoat._boatclients.Count(x => x.appState != ClientCommunicationStates.VIDEO);
+                
+                // if(countclients == 0 && message_scope != 86)
+                // { ecodroneBoat.RestartTeensyTalkSignal();
 
                 switch (message_scope)
                 {
@@ -328,7 +378,7 @@ public class EcoClient
                         if(message.data != null)
                         {
                             //Verify user role now all admin
-                            GotCommand(message, boat, this);
+                            UploadMission(message, ecodroneBoat);
                         }
                     }
                     break;
@@ -336,7 +386,7 @@ public class EcoClient
                     {
                         if(message.data != null)
                         {
-                            HandleMissionCommand(message, boat, this);
+                            HandleMissionCommand(message, ecodroneBoat);
                         }
                     }
                     break;
@@ -344,7 +394,7 @@ public class EcoClient
                     {
                         if(message != null)
                         {
-                            VideoCommunication(message, boat);
+                            VideoCommunication(message, ecodroneBoat);
                         }
                     }
                     break;
@@ -352,7 +402,7 @@ public class EcoClient
                     {
                         if(message != null)
                         {
-                            BoatClientAppStateManager(message, boat);
+                            BoatClientAppStateManager(message, ecodroneBoat);
                         } 
                     }
                     break;
@@ -424,7 +474,7 @@ public class EcoClient
     }
 
     
-    private void GotCommand(EcodroneBoatMessage message, EcodroneBoat boat, EcoClient ecoclient)
+    private void UploadMission(EcodroneBoatMessage message, EcodroneBoat boat)
     {
         _ = new cmdRW();
 
@@ -484,7 +534,7 @@ public class EcoClient
                     }
                 }
 
-                boat.teensySocketInstance._teensyLibParser.UpdateListWayPoints(waypoints);
+                boat._teensyLibParser.UpdateListWayPoints(waypoints);
 
                 
 
@@ -499,10 +549,9 @@ public class EcoClient
                     cmdRW.SAVE_MISSION_PARAM_CMD3,
                 ];
 
-                byte[] teensy_message_ready  = command_array.Concat(payload_header_mission).ToArray();
 
-                
-                TeensyMessageContainer tmessage = new TeensyMessageContainer(IdClient, "UpMission", teensy_message_ready, true);
+                byte[] buffer_ready_container = ecodroneBoat._teensyLibParser.SendConstructBuff(command_array, payload_header_mission);
+                TeensyMessageContainer tmessage = new TeensyMessageContainer("UpMission", buffer_ready_container);
 
                 boat.teensySocketInstance.command_task_que.Add(tmessage);
             }
@@ -513,32 +562,36 @@ public class EcoClient
        
     } 
 
-    private async void HandleMissionCommand(EcodroneBoatMessage stateMessage, EcodroneBoat boat, EcoClient? ecoClient)
+    private void HandleMissionCommand(EcodroneBoatMessage stateMessage, EcodroneBoat boat)
     {
-        if(stateMessage.scope != 'M' || ecoClient == null ||ecoClientRole != EcoClientRole.Admin)
+        if(stateMessage.scope != 'M' || ecoClientRole != EcoClientRole.Admin)
         {
             return;
         }else
         {
             int type_m = ushort.Parse(stateMessage.type);
+
             switch (type_m)
             {
                 case 0:
                 {
                     _ = new cmdRW();
 
-                    TeensyMessageContainer tmessage = new TeensyMessageContainer(IdClient, "DTree",
-                    [
+                    byte[] command = [ 
                         cmdRW.ID_WEBAPP,
                         cmdRW.ID_MODULO_BASE,
                         cmdRW.ID_MODULO_BASE,
                         cmdRW.REQUEST_CMD1,
                         cmdRW.UPDATE_MISS_LIST_CMD2,
-                        cmdRW.UPDATE_FILE_LIST_CMD3,
-                        0x00,
-                        0x00
-                    ], true);
+                        cmdRW.UPDATE_FILE_LIST_CMD3
+                    ];
 
+                    
+                    byte[] directory_tree_index = [0x00, 0x00];
+                    byte[] buffer_ready_container = ecodroneBoat._teensyLibParser.SendConstructBuff(command, directory_tree_index);
+
+
+                    TeensyMessageContainer tmessage = new TeensyMessageContainer("DTree", buffer_ready_container, IdClient);
                     boat.teensySocketInstance.command_task_que.Add(tmessage);
                 }
                 break;
@@ -547,7 +600,13 @@ public class EcoClient
                     if(stateMessage.data != null)
                     {
                         string unencodedstring = Uri.UnescapeDataString((string)stateMessage.data);
-                        byte[] path_choosen_file =  Encoding.UTF8.GetBytes(unencodedstring);
+
+                        byte[] byte_path =  Encoding.UTF8.GetBytes(unencodedstring);
+                        byte[] byte_path_nll_terminated = new byte[byte_path.Length + 1];
+                        Array.Copy(byte_path, 0, byte_path_nll_terminated, 0, byte_path.Length);
+                        byte_path_nll_terminated[byte_path.Length] = 0x00;
+
+                        
                         byte[] partial_command = [
                             cmdRW.ID_WEBAPP,
                             cmdRW.ID_MODULO_BASE,
@@ -557,26 +616,12 @@ public class EcoClient
                             cmdRW.GET_MISSION_PARAM_CMD3,
                         ];
 
-                        byte[] total_command = new byte[path_choosen_file.Length + partial_command.Length + 1];
 
-                        Array.Copy(partial_command, total_command, partial_command.Length);
-                        Array.Copy(path_choosen_file, 0, total_command, partial_command.Length, path_choosen_file.Length);
-                        total_command[partial_command.Length + path_choosen_file.Length] = 0x00;
+                        byte[] buffer_ready_container = ecodroneBoat._teensyLibParser.SendConstructBuff(partial_command, byte_path_nll_terminated);
 
-                        _ = new cmdRW();
-
-                        TeensyMessageContainer tmessage = new TeensyMessageContainer(IdClient, "MMW", total_command, true);
-
+                        TeensyMessageContainer tmessage = new TeensyMessageContainer("MMW", buffer_ready_container, IdClient);
                         boat.teensySocketInstance.command_task_que.Add(tmessage);
 
-                        // for (int i = 0; i < boat._boatclients.Count; i++)
-                        // {
-                        //     if(boat._boatclients[i].IdClient != IdClient)
-                        //     {
-                        //         boat._boatclients[i].src_cts_block_listening.Cancel();
-
-                        //     }
-                        // }
                     }
                 }
                 break;

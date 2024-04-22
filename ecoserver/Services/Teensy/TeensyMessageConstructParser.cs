@@ -20,27 +20,19 @@ namespace webapi
     {
 
         private cmdRW _cmdRW  { get; set; }
-        private ParamId _paramId { get; set; }
         public string _url { get; private set; } = string.Empty;
         public int _port { get; private set; } = 0;
-
-        
-        //private byte[] bufferSend = new byte[255];
-
-
+        public readonly EcodroneBoat ecodroneBoat;
         private List<WayPoint>? wayPoints = null;
         private UInt16 nWP_now { get; set; } = 0;
         private UInt16 totalWaypoints { get; set; } = 0;
 
-
-        // private ushort initMultiVar { get; set; } = 0;
-        // private ushort indexByteLoad { get; set; } = 10;
-
-
-        public TeensyMessageConstructParser()
+        public TeensyMessageConstructParser(EcodroneBoat boat)
         {
-            _paramId = new ParamId();
+            //_paramId = new ParamId();
             _cmdRW = new cmdRW();
+
+            ecodroneBoat = boat;
         }
 
 
@@ -70,175 +62,71 @@ namespace webapi
         }
 
 
-        private byte[] SendConstructBuff(byte[] command, byte[] bufferSend)
+        public byte[] SendConstructBuff(byte[] command,  byte[]? object_array)
         {
-            byte[] array1 = new byte[bufferSend.Length + 1];
+            byte[] commandReady;
+
+            if(object_array != null)
+            {
+                commandReady = new byte[object_array.Length + 11];
+                Array.Copy(object_array, 0, commandReady, 10, object_array.Length);
+
+            }else
+            {
+                commandReady = new byte[11];
+            }
+           
+            commandReady[cmdRW.INDEX_SINCHAR_0] = ecodroneBoat._Sync[0];
+            commandReady[cmdRW.INDEX_SINCHAR_1] = ecodroneBoat._Sync[1];
+            commandReady[cmdRW.INDEX_SINCHAR_2] = ecodroneBoat._Sync[2];
+
+            commandReady[cmdRW.INDEX_BUF_LENG] = (byte)(commandReady.Length - 3);
+            commandReady[cmdRW.INDEX_BUF_SORG] = command[0];
+            commandReady[cmdRW.INDEX_BUF_DEST] = command[1];
+            commandReady[cmdRW.INDEX_BUF_ID_D] = command[2];
+
+            commandReady[cmdRW.INDEX_BUF_CMD_1] = command[3];
+            commandReady[cmdRW.INDEX_BUF_CMD_2] = command[4];
+            commandReady[cmdRW.INDEX_BUF_CMD_3] = command[5];
+    
+            byte ck = CksumCompute(commandReady);
+            commandReady[commandReady.Length - 1] = ck;
+
+            byte[] checksumarraytest = new byte[commandReady.Length - 3];
+            Array.Copy(commandReady, 3, checksumarraytest, 0, checksumarraytest.Length);
+
+            bool res = cksumTest(checksumarraytest);
+
+            if(res != true)
+            {throw new OverflowException();}
 
 
-            array1[cmdRW.INDEX_SINCHAR_0] = _paramId.Boat[0];
-            array1[cmdRW.INDEX_SINCHAR_1] = _paramId.Boat[1];
-            array1[cmdRW.INDEX_SINCHAR_2] = _paramId.Boat[2];
-
-            array1[cmdRW.INDEX_BUF_LENG] = (byte)(bufferSend.Length - 2);
-            array1[cmdRW.INDEX_BUF_SORG] = command[0];
-            array1[cmdRW.INDEX_BUF_DEST] = command[1];
-            array1[cmdRW.INDEX_BUF_ID_D] = command[2];
-
-            array1[cmdRW.INDEX_BUF_CMD_1] = command[3];
-            array1[cmdRW.INDEX_BUF_CMD_2] = command[4];
-            array1[cmdRW.INDEX_BUF_CMD_3] = command[5];
-
-            
-            
-            Array.Copy(bufferSend, 10, array1, 10, bufferSend.Length - 10);
-
-            byte ck = CksumCompute(array1);
-            array1[array1.Length - 1] = ck;
-
-
-            return array1;
+            return commandReady;
         }
 
-        private byte[]? ConstructBuff(byte[] obj)
+      
+
+        public void ParseTeensyMessage(byte[] dataread)
         {
-            if (obj == null)
+        
+            byte[] cksummessage = new byte[dataread[3]];
+            Array.Copy(dataread, 3, cksummessage, 0, cksummessage.Length);
+          
+            if (cksumTest(cksummessage))
             {
-                return null;
+                byte[] array_command = new byte[7];
+                Array.Copy(cksummessage, 0, array_command, 0, array_command.Length);
+
+                byte[] message_array = new byte[cksummessage.Length - 8];
+                Array.Copy(cksummessage, 7, message_array, 0, message_array.Length );
+
+                analBuff(message_array, array_command);
             }
-
-            long length_buffer = cmdRW.INDEX_BUF_CONTB + obj.Length;
-            byte[] bufferSend = new byte[length_buffer];
-            int indexbuff = 0;
-
-            for (ushort i = cmdRW.INDEX_BUF_CONTB; i < length_buffer; i++)
+            else
             {
-                bufferSend[i] = obj[indexbuff];
-                indexbuff++;
+                Debug.WriteLine("error");
             }
-
-            return bufferSend;
-
-        }
-        public byte[] PrepareTeensyRequest(byte[] c)
-        {
             
-            byte[] command_message = new byte[6];
-            byte[]? message_ok = null;
-
-            Array.Copy(c, command_message, 6);
-
-            if(c.Length > 6)
-            {
-                byte[] payload_message = new byte[c.Length - 6];
-                Array.Copy(c, 6, payload_message, 0, payload_message.Length);
-
-                message_ok = ConstructBuff(payload_message);
-            }
-
-            if(message_ok == null)
-            {
-                message_ok = new byte[10];
-            }
-
-            byte[] buffer_ready_send = SendConstructBuff(command_message, message_ok);
-
-            return buffer_ready_send;
-        }
-
-
-
-        public async Task<ChannelTeensyMessage> ReadBufferAsync(NetworkStream? nS, string idclient)
-        {
-            if(nS == null)
-            {
-                return new ChannelTeensyMessage("empty", "empty");
-            }
-
-            byte[] dataread = new byte[255];
-            int bytesRead = await nS.ReadAsync(dataread);
-
-            byte[] bufferRead = new byte[255];
-            byte buff_step = 0;
-            byte message_length = 0;
-            byte indexByte = 0;
-            string my_buff_text = "";
-
-            byte[] pure_anal_array = new byte[bytesRead];
-
-            for (int i = 0; i < bytesRead; i++)
-            {
-                my_buff_text += string.Concat(dataread[i].ToString(), ",");
-
-
-                switch (buff_step)
-                {
-                    case 0:
-                        if (dataread[i] == _paramId.Boat[0])
-                        {
-                            buff_step++;
-                        }
-                        else
-                        {
-                            buff_step = 0;
-
-                            //char myChar = Convert.ToChar(dataread);
-
-                        }
-                        break;
-
-                    case 1:
-                        if (dataread[i] == _paramId.Boat[1])
-                        {
-                            buff_step++;
-                        }
-                        else
-                        {
-                            buff_step = 0;
-                        }
-                        break;
-                    case 2:
-                        if (dataread[i] == _paramId.Boat[2])
-                        {
-                            buff_step++;
-                        }
-                        else
-                        {
-                            buff_step = 0;
-                        }
-                        break;
-
-                    case 3:
-
-                        message_length = dataread[i];
-                        bufferRead = new byte[message_length];
-                        indexByte = 0;
-                        bufferRead[indexByte] = dataread[i];
-                        buff_step++;
-
-                        break;
-
-                    case 4:
-                        indexByte++;
-                        bufferRead[indexByte] = dataread[i];
-
-                        if (indexByte >= message_length - 1)
-                        {
-                            if (cksumTest(bufferRead))
-                            {
-                                ChannelTeensyMessage teensyMessage =  await analBuff(bufferRead, idclient);
-                                return teensyMessage;
-                            }
-                            else
-                            {
-                                Debug.WriteLine("error");
-                            }
-                            
-                        }
-                        break;
-                }
-            }
-
-            return new ChannelTeensyMessage("empty","empty");
         }
 
         private byte CksumCompute(byte[] buff)
@@ -246,7 +134,7 @@ namespace webapi
             byte cksum = 0;
             int indexBufLeng = 3; 
 
-            for (int i = indexBufLeng; i < buff.Length ; i++)
+            for (int i = indexBufLeng; i < buff.Length - 1 ; i++)
             {
                 cksum += buff[i];
             }
@@ -255,45 +143,6 @@ namespace webapi
         }
 
         
-
-//         private byte[]? ToBytesArray(object obj)
-//         {
-//             if (obj == null)
-//             {
-//                 return null;
-//             }
-
-//             using (MemoryStream streamN = new MemoryStream())
-//             {
-//                 System.Text.Json.JsonSerializer.SerializeAsync(streamN, obj, obj.GetType()).Wait();
-
-//                 streamN.Position = 0;
-//                 long streamSize = streamN.Length;
-
-//                 long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
-
-//                 bufferSend = new byte[length_buffer];
-
-//                 return streamN.ToArray();
-
-//                /* await JsonSerializer.SerializeAsync(streamN, obj, obj.GetType());
-
-//                 // Position is not needed, as the next line already considers the current position
-//                 long streamSize = streamN.Length;
-
-//                 long length_buffer = cmdRW.INDEX_BUF_CONTB + streamN.Length + 1;
-
-//                 bufferSend = new byte[length_buffer];
-
-//                 byte[] buffer_temp = streamN.ToArray();
-//                 Buffer.BlockCopy(buffer_temp, 0, bufferSend, indexByteLoad, buffer_temp.Length);
-//                 indexByteLoad += buffer_temp.Length;*/
-//             }
-
-// /*            initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;*/
-
-//         }
-
         private T CombinaVar<T>(byte[] bytes_convert)
         {
             T _template = default(T);
@@ -325,28 +174,11 @@ namespace webapi
             return Tuple.Create(_template, index_now);
         }
 
-        // private byte[] CombinaMultiVarArr(byte[] buff_extract)
-        // {
 
-        //     //byte[] buff_object = new byte[buff_extract.Length - 12];
-
-        //     for (byte i = 0; i < buff_extract.Length; i++)
-        //     {
-        //         //buff_extract[i] = buff_extract[initMultiVar];
-        //         initMultiVar++;
-        //     }
-
-        //     return buff_extract;
-        // }
-
-        // void EndCombinaMultiVar()
-        // {
-        //     initMultiVar = cmdRW.INDEX_BUF_CONTB - cmdRW.INDEX_BUF_LENG;
-        // }
 
         private bool cksumTest(byte[] buff)
         {
-            byte cksum = 0;
+             byte cksum = 0;
 
             for (byte i = 0; i < (buff[0] - 1); i++)
             {
@@ -354,7 +186,7 @@ namespace webapi
 
             }
 
-            if (cksum == buff[(buff[0] - 1)])
+            if (cksum == buff[buff[0] - 1])
             {
                 return true;
             }
@@ -388,17 +220,13 @@ namespace webapi
 
             return buff_out;
         }
-        /*private int CopyToByteArray(byte[] source, byte[] destination, int startIndex)
-        {
-            Array.Copy(source, 0, destination, startIndex, source.Length);
-            return startIndex + source.Length;
-        }*/
 
-        private Task<ChannelTeensyMessage> analBuff(byte[] mybuffdata, string idclient)
-        {
-            TeensyMessage _teensyMessage = new TeensyMessage(mybuffdata);
 
-            byte[] bufferDataOnly = BufferDataOnly(mybuffdata);
+        private void analBuff(byte[] bufferDataOnly, byte[] mycommanddata)
+        {
+            TeensyMessage _teensyMessage = new TeensyMessage(mycommanddata);
+
+            //byte[] bufferDataOnly = BufferDataOnly(mybuffdata);
 
             if ((_teensyMessage.destCmd) == cmdRW.ID_WEBAPP)
             {
@@ -471,21 +299,20 @@ namespace webapi
 
                                             if (wayPoint_bytes != null)
                                             {
-                                                byte[]? constructed = ConstructBuff(wayPoint_bytes);
+                                              
 
-                                                if(constructed != null)
-                                                {
-                                                    byte[] command = [cmdRW.ID_WEBAPP,
-                                                    cmdRW.ID_MODULO_BASE,
-                                                    cmdRW.ID_MODULO_BASE,
-                                                    cmdRW.RESPONSE_CMD1,
-                                                    cmdRW.SAVE_MISSION_CMD2,
-                                                    cmdRW.SAVE_MISSION_WP_CMD3];
+                                                byte[] command = [cmdRW.ID_WEBAPP,
+                                                cmdRW.ID_MODULO_BASE,
+                                                cmdRW.ID_MODULO_BASE,
+                                                cmdRW.RESPONSE_CMD1,
+                                                cmdRW.SAVE_MISSION_CMD2,
+                                                cmdRW.SAVE_MISSION_WP_CMD3];
 
-                                                    byte[] newCommand = SendConstructBuff(command, constructed);
+                                                byte[] newCommand = SendConstructBuff(command, wayPoint_bytes);
 
-                                                    return Task.FromResult(new ChannelTeensyMessage(idclient, "new_internal_data", newCommand, true));
-                                                }
+                                                ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("new_internal_data", newCommand));
+                                                //return Task.FromResult(new SignalBusMessage("new_internal_data", newCommand));
+                                                
 
                                             }
 
@@ -596,11 +423,29 @@ namespace webapi
                                     }
                                 }
 
-                             
+                                if (_teensyMessage.Cmd3 == cmdRW.UPDATE_FILE_LIST_CMD3)
+                                {
+                                    // byte[] fileCountArr = BitConverter.GetBytes(fileCount);
 
-                                string json = JsonConvert.SerializeObject(root, Formatting.Indented);
-                                return Task.FromResult(new ChannelTeensyMessage(idclient, "DTree", null, false, json));
+                                    // bool succ = CostructBuff(fileCountArr);
 
+                                    // if (succ)
+                                    // {
+                                    //     //here change
+                                    //     //SendCostructBuff(cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.UPDATE_MISS_LIST_CMD2, cmdRW.UPDATE_FILE_LIST_CMD3);
+                                        
+                                    // }
+                                    throw new NotImplementedException();
+
+                                }else
+                                {
+                                    string json = JsonConvert.SerializeObject(root, Formatting.Indented);
+                                    ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("DTree", null, json));
+                                    // return Task.FromResult(new SignalBusMessage("DTree", null, json));
+
+                                }
+
+                                
                                 //HANDLE HERE IF STRUCTURE IS BIGGER THAN 255 BYTES
                                 //HANDLE DIFFERENT FROM WHAT THEY DID SO INSTANCE DOES NOT RETURN PARTIAL DATA
                                 //TO CHECK FIX AND IMPLEMENT
@@ -619,7 +464,7 @@ namespace webapi
 
                                 }*/
                                 
-                               // return Task.FromResult(new ChannelTeensyMessage("DTree", null, false, json));
+                               // return Task.FromResult(new SignalBusMessage("DTree", null, false, json));
 
                             }
 
@@ -683,16 +528,14 @@ namespace webapi
                                     nWP_now = 0;
                                     byte[] wpbyte = BitConverter.GetBytes(nWP_now);
 
-                                    byte[]? message_payload = ConstructBuff(wpbyte);
-
-                                    if(message_payload != null)
-                                    {
-                                        byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
-                                        return Task.FromResult(new ChannelTeensyMessage(idclient, "MMW", newCommand, true, json));
-                                    }
+                                    byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], wpbyte);
+                                    
+                                    
+                                    ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("MMW", newCommand, json));
+                                    //return Task.FromResult();
                                     
 
-                                    //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("MMW", json),  data_command = newCommand, NeedAnswer = true });
+                                    //return Task.FromResult(new SignalBusMessage() { data_in = SeriaDataAndReturn("MMW", json),  data_command = newCommand, NeedAnswer = true });
 
 
                                     //eturn Task.FromResult(new NeedData() { taskNeedResult = true, commandData = newCommand, NeedPreparation = false});
@@ -713,14 +556,13 @@ namespace webapi
                                         if (nWP_now < totalWaypoints)
                                         {
                                             byte[] wpbyte = BitConverter.GetBytes(nWP_now);
+                                            //Array.Reverse(wpbyte);
+                                                
                                             
-                                            byte[]? message_payload = ConstructBuff(wpbyte);
-
-                                            if(message_payload != null)
-                                            {
-                                                byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], message_payload);
-                                                return Task.FromResult(new ChannelTeensyMessage(idclient, "new_internal_data", newCommand, true));
-                                            }
+                                            byte[] newCommand = SendConstructBuff([cmdRW.ID_WEBAPP, cmdRW.ID_MODULO_BASE, cmdRW.ID_MODULO_BASE, cmdRW.REQUEST_CMD1, cmdRW.GET_MISSION_CMD2, cmdRW.GET_MISSION_WP_CMD3], wpbyte);
+                                            
+                                            ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("new_internal_data", newCommand));
+                                            //return Task.FromResult();
                                             
                                         }
                                         else
@@ -728,8 +570,9 @@ namespace webapi
                                             string json = JsonConvert.SerializeObject(wayPoints, Formatting.Indented);
                                             totalWaypoints = 0;
 
-                                            return Task.FromResult(new ChannelTeensyMessage(idclient, "AllWayPoints", null, false, json));
-                                            //return Task.FromResult(new ChannelTeensyMessage() { data_in = SeriaDataAndReturn("AllWayPoints", json), data_command = null, NeedAnswer = true });
+                                            ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("AllWayPoints", null, json));
+                                            //return Task.FromResult();
+                                            //return Task.FromResult(new SignalBusMessage() { data_in = SeriaDataAndReturn("AllWayPoints", json), data_command = null, NeedAnswer = true });
                                         }
 
                                     }
@@ -830,7 +673,9 @@ namespace webapi
                                     ImuData imuData = CombinaVar<ImuData>(bufferDataOnly);
                                    
                                     string json_data = JsonConvert.SerializeObject(imuData);
-                                    return Task.FromResult(new ChannelTeensyMessage(idclient, "ImuData", null, false, json_data));
+
+                                    ecodroneBoat.signalBusSocket.Publish(new SignalBusMessage("ImuData", null, json_data));
+                                    //return Task.FromResult();
                                 }
                                 
 
@@ -1005,7 +850,6 @@ namespace webapi
                 }
             }
 
-            return Task.FromResult(new ChannelTeensyMessage(idclient, "empty")); 
         }
 
     }

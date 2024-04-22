@@ -17,21 +17,23 @@ public class EcodroneBoat
     private int portvideo {get; set;} = 5057;
     public int port {get; set;} = 5058;
 
-    public Task httpListener_task;
-    public Task jetsonListener_task;
+    // public Task httpListener_task;
+    // public Task jetsonListener_task;
     public HttpListener _ecodroneBoatClienSocketListener;
     public EcodroneTeensyInstance teensySocketInstance {get; protected set;}
-    public Dictionary<EcoClient, Task?> _boatclients = new Dictionary<EcoClient, Task?>();
+    public List<EcoClient> _boatclients = new List<EcoClient>();
     public VideoTcpListener ecodroneVideo {get; protected set;}
     public IVideoBusService _videoBusService { get; set; } = new VideoBusService();
+    public ISignalBusSocket signalBusSocket;
+    public ITeensyMessageConstructParser _teensyLibParser { get; private set; }
+    public readonly EcodroneMessagesContainers ecodroneMessagesContainers;
 
     public CancellationTokenSource src_cts_boat = new CancellationTokenSource();
     public CancellationToken cts_boat {get; private set;}
-
-    public Semaphore semaphore = new Semaphore(1,1);
-
     public CancellationTokenSource src_cts_block_listening = new CancellationTokenSource();
     public CancellationToken cts_block_listening;
+
+
     public EcodroneBoat(string _maskedid, byte[] sync, string IPT, int PT, bool setActive = false)
     {
         if(sync.Length != 3) { throw new ArgumentException("teensy sync not valid");}
@@ -40,15 +42,19 @@ public class EcodroneBoat
         _PortTeensy = PT;
         isActive = setActive;
         maskedId = _maskedid;
+        
+        signalBusSocket = new SignalBusSocket(this);
+        _teensyLibParser = new TeensyMessageConstructParser(this);
+        ecodroneMessagesContainers = new EcodroneMessagesContainers(_teensyLibParser);
 
         _ecodroneBoatClienSocketListener = new HttpListener();
-        _ecodroneBoatClienSocketListener.Prefixes.Add($"http://*:{port}/interface/");// {_maskedid}/");
+        _ecodroneBoatClienSocketListener.Prefixes.Add($"http://localhost:{port}/interface/");// {_maskedid}/");
        
         cts_block_listening = src_cts_block_listening.Token;
        
         ecodroneVideo = new VideoTcpListener(_videoBusService, portvideo);
         teensySocketInstance = new EcodroneTeensyInstance(this, maskedId);
-        
+       
     }
 
     public EcodroneBoat ChangeState(bool state)
@@ -73,9 +79,11 @@ public class EcodroneBoat
 
     public void StartEcodroneBoatTasks()
     {
+
        _ecodroneBoatClienSocketListener.Start();
         _ecodroneBoatClienSocketListener.BeginGetContext(callBack_BoatListener, _ecodroneBoatClienSocketListener);
         ecodroneVideo._jetsonClientListener.BeginAcceptTcpClient(new AsyncCallback(ecodroneVideo.OnClientConnect), ecodroneVideo._jetsonClientListener);
+        
     }
 
     private async void callBack_BoatListener(IAsyncResult result)
@@ -92,17 +100,33 @@ public class EcodroneBoat
                     HttpListenerContext context = listener.EndGetContext(result);
                     HttpListenerWebSocketContext websocket_context = await context.AcceptWebSocketAsync(null, new TimeSpan(1000));
                     
-                    EcoClient new_client = new EcoClient(this);
-                    Task client_run = Task.Run(async () => { await HandlingClient(websocket_context.WebSocket, new_client); });
+                    var buffer = new byte[1024 * 4];
+                    await websocket_context.WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
-                    if(_boatclients.Count() == 0)
+                    byte message_scope = buffer.First();
+
+                    if(message_scope == 83)
                     {
-                        RestartTeensyTalkSignal();
+                        EcoClient new_client = new EcoClient(this, websocket_context.WebSocket);
+                        _boatclients.Add(new_client);
+                    }else
+                    {
+                        await websocket_context.WebSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, null, CancellationToken.None);
+                        websocket_context.WebSocket.Abort();
+                        websocket_context.WebSocket.Dispose();
                     }
-
-                    _boatclients.Add(new_client, client_run);
+                    
+                    //this is good but fix it
+                    // if(_boatclients.Count() == 0)
+                    // {
+                    //     RestartTeensyTalkSignal();
+                    // }
 
                     await Task.Run(() =>listener.BeginGetContext(callBack_BoatListener, listener), cts_boat);
+
+                    
+
+                    
                 }
             }
             
@@ -116,74 +140,9 @@ public class EcodroneBoat
         
     }
 
-    public void RestartTeensyTalkSignal()
-    {
-        teensySocketInstance.src_cts_teensy = new CancellationTokenSource();
-        teensySocketInstance.cts_teensy = teensySocketInstance.src_cts_teensy.Token;
-        Task.Run(teensySocketInstance.StartTeensyTalk, teensySocketInstance.cts_teensy);
-    }
-
-    public async Task HandlingClient(WebSocket webSocket, EcoClient ecoClient) 
-    {
-        while (!cts_block_listening.IsCancellationRequested)
-        {
-            ecoClient = await ReadFirstMessage(webSocket, ecoClient);
-            teensySocketInstance.signalBusSocket.Subscribe(ecoClient.TeensyReadAndSend, ecoClient);
-
-            while (webSocket.State == WebSocketState.Open && !cts_block_listening.IsCancellationRequested)
-            {
-                await Task.Run(() => ecoClient.ReadWebSocket(webSocket, this));
-            }
-
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
-            _boatclients.Remove(ecoClient);
-        }
-
-        
-
-            
-
-    }
+    
 
     
-    private async Task<EcoClient> ReadFirstMessage(WebSocket _webSocket, EcoClient _client)
-    {
-       
-        var buffer = new byte[1024 * 4];
-        var receiveResult = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-        byte message_scope = buffer[0];
-
-        if(message_scope == 83)
-        {
-            _client.IdClient = Guid.NewGuid().ToString();
-            _client._socketClient = _webSocket;
-            
-        
-            //publish id for user
-            EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
-            {
-                scope = 'U',
-                type = "1",
-                uuid = maskedId,
-                direction = _client.IdClient,
-                identity = _client.IdClient,
-                data = null
-            };
-
-            string message_serialized = JsonConvert.SerializeObject(ecodroneBoatMessage);
-            Debug.WriteLine(message_serialized);
-            var messageToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message_serialized));
-
-            await _client._socketClient.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
-
-        }else
-        {
-            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
-        }
-
-        return _client;
-    }
 
     
 

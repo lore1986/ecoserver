@@ -1,0 +1,138 @@
+  byte[] data = command_task_que[0].CommandId;
+                await _networkStream.WriteAsync(data, 0, data.Length); 
+                
+
+                byte[] dataread = new byte[255];
+                byte[] byteArrayError = new byte[1];
+                byte startbyte;
+                bool active = false;
+                int index = 0;
+                int positions_marked = 0;
+
+               
+
+                while ((startbyte = (byte)_networkStream.ReadByte()) > 0)
+                {
+                    if(startbyte == ecodroneBoat._Sync[0])
+                    {
+                        active = true;
+                    }
+
+                    if(!active)
+                    {
+                        index = 0;
+                        
+                        
+                        string messageDebugBefore = Encoding.UTF8.GetString(byteArrayError);
+                        Debug.WriteLine($"Debug line for extra message as string is {messageDebugBefore}");
+                        Debug.WriteLine($"Debug line for extra message as byte is {byteArrayError.ToArray().ToString()}");
+
+                        
+
+                        byteArrayError[byteArrayError.Length - 1] = startbyte; 
+
+                        byte[] newErrmess = new byte[byteArrayError.Length + 1];
+                        Array.Copy(byteArrayError, newErrmess, byteArrayError.Length);
+
+                        byteArrayError = new byte[newErrmess.Length];
+                        Array.Copy(newErrmess, 0, byteArrayError, 0, newErrmess.Length);
+
+                    }else
+                    {
+                        if(index > 255){ throw new OverflowException("buffer bigger than 255 bytes");};
+                        dataread[index] = startbyte;
+                        positions_marked = index;
+                        index++;
+
+                    }
+                }
+
+                active = false;
+
+                //int bytesRead = await _networkStream.ReadAsync(dataread);
+                byte[] data_clean = new byte[positions_marked];
+                positions_marked = 0;
+                Array.Copy(dataread, 0, data_clean, 0, data_clean.Length);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if(signalBusSocket.IsMessageForAll(channelMessage.message_id))
+{
+    signalBusSocket.Publish(channelMessage);
+    
+}else
+{
+    if(id_client != null)
+    {
+        if(channelMessage.message_id != "new_internal_data") 
+        {
+            signalBusSocket.Publish(channelMessage, id_client);
+        }
+        
+        if(channelMessage.data_command != null ) //it should be
+        {
+            internal_task_que = new List<TeensyMessageContainer>();
+
+            TeensyMessageContainer newMessageContainer = new TeensyMessageContainer(channelMessage.message_id, channelMessage.data_command, id_client);
+            internal_task_que.Add(newMessageContainer);
+            
+            while(internal_task_que.Count > 0)
+            {
+                await _networkStream.WriteAsync(internal_task_que[0].CommandId, 0, internal_task_que[0].CommandId.Length); 
+
+                byte[] reading_buffer = new byte[1024*4];
+                int buffereadcount = await _networkStream.ReadAsync(reading_buffer);
+                Tuple<bool, int> check_subarray  = IsSubArray(reading_buffer, [ecodroneBoat._Sync[0],ecodroneBoat._Sync[1],ecodroneBoat._Sync[2]]);
+
+                if(check_subarray.Item1)
+                {
+                    byte length_sub = reading_buffer[check_subarray.Item2 + 3];
+                    int data_clean_sub_length = length_sub + 4;
+
+                    byte[] data_clean_sub = new byte[data_clean_sub_length];
+
+                    Array.Copy(reading_buffer, check_subarray.Item2, data_clean_sub, 0, data_clean_sub.Length - 1);
+
+                    SignalBusMessage subChannelMessage = await _teensyLibParser.ParseTeensyMessage(data_clean_sub);
+                
+                    if(subChannelMessage.message_id != "new_internal_data") 
+                    {
+                        signalBusSocket.Publish(subChannelMessage, id_client);
+                    }
+                
+                    if(subChannelMessage.data_command != null)
+                    {
+                        TeensyMessageContainer secondMessageContainer = new TeensyMessageContainer(subChannelMessage.message_id, subChannelMessage.data_command, id_client);
+                        internal_task_que.Add(secondMessageContainer);
+                    }
+                
+                    internal_task_que.RemoveAt(0);
+                }else
+                {
+                    Debug.WriteLine($"Dirty sub string are you {Encoding.UTF8.GetString(reading_buffer)}");
+                    Debug.WriteLine($"Dirty sub buffer are you {reading_buffer}");
+                }
+            }
+        }
+    }   
+}

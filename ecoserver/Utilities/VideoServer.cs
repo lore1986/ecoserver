@@ -12,6 +12,7 @@ namespace webapi
         public NetworkStream? networkStream { get; set; } = null;
         public IVideoBusService? listener_videoBus { get; private set; }
 
+       
         public void Dispose()
         {
             networkStream?.Dispose();

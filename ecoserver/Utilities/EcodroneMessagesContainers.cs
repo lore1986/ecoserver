@@ -11,40 +11,46 @@ public class TMS
 
 public class TeensyMessageContainer
 {
+    public string? IdClient {get; set;}
     public string IdContainer { get; }
     public byte[] CommandId { get; }
-    public bool NeedPreparation { get; }
-    public string IdClient {get; set;}
 
-    public TeensyMessageContainer(string id_client, string idContainer, byte[] commandId, bool needPreparation = true)
+    public TeensyMessageContainer(string idContainer, byte[] commandId, string? idclient = null)
     {
         IdContainer = idContainer;
         CommandId = commandId;
-        NeedPreparation = needPreparation;
-        IdClient = id_client;
+        IdClient = idclient;
     }
 }
 
-public class ChannelTeensyMessage
+public class SignalBusMessage
 {
-    public string id_client {get; set;}
     public string message_id {get; set;} = "NNN";
     public byte[]? data_command { get; set; } = null;
-    public bool needAnswer { get; set; } = false;
     public string data_message {get; set;}
-    public ChannelTeensyMessage(string _id_client, string id_message, byte[]? _newCommand = null, bool _needAnswer = false, string message_data = "NNN")
+    public SignalBusMessage( string id_message, byte[]? _newCommand = null, string message_data = "NNN")
     {
-        id_client = _id_client;
         message_id = id_message;
         data_command = _newCommand;
-        needAnswer = _needAnswer;
         data_message = message_data;
     }
 }
 
-public static class EcodroneMessagesContainers
+public class EcodroneMessagesContainers
 {
-    public static ClientCommunicationStates CheckAllowedContainer(string data_id)
+    private readonly ITeensyMessageConstructParser teensyparser;
+    public readonly List<string> messagesForAll;
+
+    public EcodroneMessagesContainers(ITeensyMessageConstructParser parser_teensy)
+    {
+        teensyparser = parser_teensy;
+        messagesForAll = new List<string>()
+        {
+            "ImuData"
+        };
+
+    }
+    public ClientCommunicationStates CheckAllowedContainer(string data_id)
     {
         Dictionary<ClientCommunicationStates, List<string>> allowed_containers = new Dictionary<ClientCommunicationStates, List<string>>
         {
@@ -58,22 +64,23 @@ public static class EcodroneMessagesContainers
     }
 
     
-    public static List<TeensyMessageContainer> GenerateRequestFunct()
+    public List<TeensyMessageContainer> GenerateRequestFunct()
     {
         
         List<TeensyMessageContainer> _containers_message = new List<TeensyMessageContainer>();
         
         _ = new cmdRW();
 
-        TeensyMessageContainer imuMessage = new TeensyMessageContainer("all", "ImuData",
-        [
+        byte[] imuCommand = teensyparser.SendConstructBuff([
             cmdRW.ID_WEBAPP,
             cmdRW.ID_MODULO_BASE,
             cmdRW.ID_IMU,
             cmdRW.REQUEST_CMD1,
             cmdRW.IMU_GET_CMD2,
             cmdRW.IMU_RPY_ACC_CMD3
-        ]);
+        ], null);
+
+        TeensyMessageContainer imuMessage = new TeensyMessageContainer("ImuData", imuCommand);
 
 
         _containers_message.Add(imuMessage);
