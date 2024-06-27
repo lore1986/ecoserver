@@ -35,52 +35,6 @@ public class LoginModel
 }
 
 
-/*public class CustomerGroup
-{
-    public string GroupId { get; private set; }
-    public List<TeensyGroup> teensyGroups;
-    public CustomerGroup(string customerGroupName)
-    {
-        GroupId = customerGroupName;
-        teensyGroups = new List<TeensyGroup>();
-    }
-}*/
-
-
-
-
-
-// public class BusEventMessage : EventArgs
-// {
-//     public string idTeensy { get; set; }
-//     public byte[] data { get; set; }
-
-//     //sender
-//     public BusEventMessage(string idT, byte[] data)
-//     {
-//         idTeensy = idT;
-//         this.data = data;
-//     }
-// }
-
-// public class WayPointEventArgs : EventArgs
-// {
-//     public List<WayPoint> WayPoints { get; private set; }
-//     public WayPointEventArgs(List<WayPoint> inways)
-//     {
-//         WayPoints = inways;
-//     }
-// }
-
-// public class NewClientEventArgs : EventArgs
-// {
-//     public string maskedTeensyId { get; set; } = "NNN";
-//     public string userid { get; set; }
-
-// }
-
-
-
 
 
 
@@ -89,5 +43,6 @@ public enum ClientCommunicationStates
     SENSORS_DATA,
     MISSIONS,
     VIDEO,
-    WAYPOINT
+    WAYPOINT,
+    NAVIGATION
 }

@@ -56,13 +56,28 @@ public class EcodroneMessagesContainers
         {
             { ClientCommunicationStates.MISSIONS, new List<string>() { "DTree", "MMW", "AllWayPoints" } },
             { ClientCommunicationStates.SENSORS_DATA, new List<string>() { "ImuData" } },
-            { ClientCommunicationStates.WAYPOINT, new List<string>() { "UpMission" } }
+            { ClientCommunicationStates.WAYPOINT, new List<string>() { "UpMission" } },
+            { ClientCommunicationStates.NAVIGATION, new List<string>() {"NavStart"}}
             
         };  
 
         return allowed_containers.SingleOrDefault(x => x.Value.Contains(data_id)).Key;
     }
 
+
+    static byte[] ConvertIntArrayToByteArray(int[] state)
+    {
+        int size = state.Length * sizeof(int); // Calculate the total size of the byte array
+        byte[] result = new byte[size];
+
+        for (int i = 0; i < state.Length; i++)
+        {
+            byte[] bytes = BitConverter.GetBytes(state[i]);
+            Array.Copy(bytes, 0, result, i * sizeof(int), bytes.Length);
+        }
+
+        return result;
+    }
     
     public List<TeensyMessageContainer> GenerateRequestFunct()
     {
@@ -81,9 +96,20 @@ public class EcodroneMessagesContainers
         ], null);
 
         TeensyMessageContainer imuMessage = new TeensyMessageContainer("ImuData", imuCommand);
-
-
         _containers_message.Add(imuMessage);
+
+        // int[] state = { 1, 1, 1 };
+        // byte[] commandData = ConvertIntArrayToByteArray(state);
+        
+        // byte[] command =  
+        // {
+        //     1, 44, 44, 0 , 0 , 0
+        // };
+        
+        // byte[] newCommand = teensyparser.SendConstructBuff(command, commandData);
+        // TeensyMessageContainer newCommandmessage = new TeensyMessageContainer("AllOn", newCommand);
+        // _containers_message.Add(newCommandmessage);
+        
 
 
         return _containers_message;

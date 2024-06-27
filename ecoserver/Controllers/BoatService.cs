@@ -51,10 +51,9 @@ namespace webapi.Controllers
 
             if(_ecodroneBoat != null)
             {
-               bool var_result = _activeBoatTracker.RemoveEcodroneBoatInstance(boatid);
+               _activeBoatTracker.RemoveEcodroneBoatInstance(boatid);
 
-               if(!var_result)
-               {throw new Exception("something wrong in closing");};
+
             }
             
             return Ok();

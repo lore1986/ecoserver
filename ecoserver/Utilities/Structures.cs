@@ -147,4 +147,16 @@ namespace webapi
         public List<UploadWaypoint> pointslist {get; set;} = new List<UploadWaypoint>();
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    class  NavigationData
+    {
+        public byte[] buttons { get; set; } = new byte[17];
+        public UInt16 POV { get; set; } = 0;
+        public float axisX { get; set; } = 0;
+        public float axisY { get; set; } = 0;
+        public float wheel { get; set; } = 0;
+        public float throttle { get; set; } = 0;
+    }
+
+
 }

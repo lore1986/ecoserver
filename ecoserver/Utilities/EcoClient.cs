@@ -28,41 +28,59 @@ public class EcoClient
     public bool isListening = true;
     public EcoClient(EcodroneBoat _ecodroneBoat, WebSocket socket)
     {
-        // cts_client = src_cts_client.Token;
+        cts_client = src_cts_client.Token;
         ecodroneBoat = _ecodroneBoat;
         _socketClient = socket;
-        taskina = Task.Run(GetOwnershipOfWebSocket);
-        IdClient = Guid.NewGuid().ToString();
+        taskina = Task.Factory.StartNew(GetOwnershipOfWebSocket, cts_client);
         //src_cts_block_listening = CancellationTokenSource.CreateLinkedTokenSource(cts_block_listening);
         
     }
 
-    public async Task GetOwnershipOfWebSocket() 
+    public async Task<bool> GetOwnershipOfWebSocket() 
     {
     
         await SendFirstMessage();
         ecodroneBoat.signalBusSocket.Subscribe(TeensyReadAndSend, this);
 
-        while (_socketClient.State == WebSocketState.Open && !cts_client.IsCancellationRequested)
+        while (_socketClient.State == WebSocketState.Open)
         {
             var buffer = new byte[1024 * 4];
-            WebSocketReceiveResult receiveResult = await _socketClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
-            ReadClientSocket(buffer,receiveResult.Count);
+            WebSocketReceiveResult receiveResult = await _socketClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            Debug.WriteLine($"message type {receiveResult.MessageType}" );
+            ReadClientSocket(buffer, receiveResult.Count);
+
         }
 
-        await _socketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
+
         _socketClient.Dispose();
 
-        //please check if remove happen these are different task maybe implement signal or message on bus
+        ecodroneBoat.signalBusSocket.Unsubscribe(TeensyReadAndSend, this);
         ecodroneBoat._boatclients.Remove(this); 
+                
+
+        // 
+        Debug.WriteLine("DEBUG CLIENT SOCKET IS HERE");
+
+        return true;
+        // //await _socketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
+        
+        // _socketClient.Dispose();
+
+        // //please check if remove happen these are different task maybe implement signal or message on bus
+        
+        // ecodroneBoat.signalBusSocket.Unsubscribe(TeensyReadAndSend, this);
+        // ecodroneBoat._boatclients.Remove(this); 
+
+        // await src_cts_client.CancelAsync();
 
     }
 
     
     private async Task SendFirstMessage()
     {
-       
+        IdClient = Guid.NewGuid().ToString();
+
         EcodroneBoatMessage ecodroneBoatMessage = new EcodroneBoatMessage()
         {
             scope = 'U',
@@ -180,7 +198,9 @@ public class EcoClient
             if (ecodroneMessage.direction == IdClient)
             {
                 string message_serialized = JsonConvert.SerializeObject(ecodroneMessage, Formatting.Indented);
-                           
+
+                Debug.WriteLine(message_serialized);
+
                 var messageToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(message_serialized));
 
                 await _socketClient.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
@@ -219,46 +239,50 @@ public class EcoClient
                     {
                         case "STD":
                         {
-                            if(appState != ClientCommunicationStates.SENSORS_DATA)
-                            {
-
-                                if(appState == ClientCommunicationStates.VIDEO)
-                                {
-                                    UnsubscribeVideo(boat);
-                                }
-
-                                appState = ClientCommunicationStates.SENSORS_DATA;
-                            }
+                            appState = ClientCommunicationStates.SENSORS_DATA;
                         }
                         break;
                         case "MSS":
                         {
-                            if(appState != ClientCommunicationStates.MISSIONS)
-                            {
-                                if(appState == ClientCommunicationStates.VIDEO)
-                                {
-                                    UnsubscribeVideo(boat);
-                                }
-                                appState = ClientCommunicationStates.MISSIONS;
-                            }
+                            appState = ClientCommunicationStates.MISSIONS;
                         }
                         break;
                         case "VID":
                         {
-                            if(appState != ClientCommunicationStates.VIDEO)
+                            if(!boat._videoBusService.IsASubscriber(IdClient))
                             {
                                 boat._videoBusService.Subscribe(SerializeAndSendMessage, IdClient);
-                                appState = ClientCommunicationStates.VIDEO;
                             }
+                            
+                            appState = ClientCommunicationStates.VIDEO;
                         }
                         break;
                         case "WPY":
                         {
-                            if(appState == ClientCommunicationStates.VIDEO)
-                            {
-                                UnsubscribeVideo(boat);
-                            }
                             appState = ClientCommunicationStates.WAYPOINT;
+                        }
+                        break;
+                        case "NAV":
+                        {
+                            appState = ClientCommunicationStates.NAVIGATION;
+                            _ = new cmdRW();
+
+                            byte[] command = [ 
+                                cmdRW.ID_WEBAPP,
+                                cmdRW.ID_MODULO_BASE,
+                                cmdRW.ID_MODULO_BASE,
+                                cmdRW.REQUEST_CMD1,
+                                cmdRW.REMOTE_CONTROL_CMD2,
+                                cmdRW.INPUT_JOYSTICK_CMD3
+                            ];
+
+                            
+                            byte[] buffer_ready_container = ecodroneBoat._teensyLibParser.SendConstructBuff(command, null);
+
+                            TeensyMessageContainer tmessage = new TeensyMessageContainer("NavStart", buffer_ready_container, IdClient);
+
+                            //REACTIVATE
+                            boat.teensySocketInstance.command_task_que.Add(tmessage);
                         }
                         break;
                     }
@@ -285,6 +309,8 @@ public class EcoClient
         _boat._videoBusService.Publish(ecodroneBoatMessage);
         _boat._videoBusService.Unsubscribe(SerializeAndSendMessage, IdClient);
     }
+
+
     public void VideoCommunication(EcodroneBoatMessage videoMessage, EcodroneBoat boat)
     {
         if (videoMessage != null)
@@ -315,11 +341,13 @@ public class EcoClient
                         break;
                         case 0:
                         {
-                            if(videoMessage.data != null)
-                            {
-                                videoMessage.data = videoMessage.data.ToString();
-                                boat._videoBusService.Publish(videoMessage);
-                            }
+                            // if(videoMessage.data != null)
+                            // {
+                               
+                            // }
+                            videoMessage.identity = IdClient;
+                            videoMessage.data = videoMessage?.data?.ToString();
+                            boat._videoBusService.Publish(videoMessage);
                         }
                         break;
                     }
@@ -328,11 +356,12 @@ public class EcoClient
                 break;
                 default:
                 {
-                    if(videoMessage.data != null)
-                    {
-                        videoMessage.data = videoMessage.data.ToString();
-                        boat._videoBusService.Publish(videoMessage);
-                    }
+                    // if(videoMessage.data != null)
+                    // {
+                        
+                    // }
+                    videoMessage.data = videoMessage?.data?.ToString();
+                    boat._videoBusService.Publish(videoMessage);
                     
                 }
                 break;
@@ -364,20 +393,12 @@ public class EcoClient
             
             if(message != null)
             {
-
-                
-                //int countclients = ecodroneBoat._boatclients.Count(x => x.appState != ClientCommunicationStates.VIDEO);
-                
-                // if(countclients == 0 && message_scope != 86)
-                // { ecodroneBoat.RestartTeensyTalkSignal();
-
                 switch (message_scope)
                 {
                     case 72: //W
                     {
                         if(message.data != null)
                         {
-                            //Verify user role now all admin
                             UploadMission(message, ecodroneBoat);
                         }
                     }
@@ -403,6 +424,81 @@ public class EcoClient
                         if(message != null)
                         {
                             BoatClientAppStateManager(message, ecodroneBoat);
+                        } 
+                    }
+                    break;
+                    case 78: //N
+                    {
+                        if(message != null)
+                        {
+                        
+                            if(message.data != null && message.data.ToString() != null)
+                            {
+                                _ = new cmdRW();
+
+                                string? data = message.data.ToString();
+                                Debug.WriteLine("Message client " + data);
+
+                                if(data != null)
+                                {
+                                    byte[] joy_command = [ 
+                                        cmdRW.ID_WEBAPP,
+                                        cmdRW.ID_MODULO_BASE,
+                                        cmdRW.ID_MODULO_BASE,
+                                        cmdRW.REQUEST_CMD1,
+                                        cmdRW.JS_DRIVING_DATA_CMD2,
+                                        0 //ask if it is 4 here
+                                    ];
+
+                                    NavigationData? navigationData =  JsonConvert.DeserializeObject<NavigationData>(data);
+                                    
+                                    if(navigationData.buttons.Any(x => x != 0))
+                                    {
+                                        Debug.WriteLine("button received");
+                                    }
+                                    
+
+                                    //Debug.WriteLine(string.Join(",", navigationData.buttons));
+                                    Debug.WriteLine(string.Join("Axis Y", navigationData.axisY));
+                                    Debug.WriteLine(string.Join("Axis X", navigationData.axisX));
+                                    Debug.WriteLine(string.Join("Throttle  ", navigationData.throttle));
+                                    Debug.WriteLine(string.Join("POV ", navigationData.POV));
+                                    Debug.WriteLine(string.Join("Wheel ", navigationData.wheel));
+
+                                    if(navigationData != null)
+                                    {
+                                        byte[] nav_data = new byte[35];
+                                        Array.Copy(navigationData.buttons, 0, nav_data, 0, 17);
+                                        
+                                        Array.Copy(BitConverter.GetBytes(navigationData.POV), 0, nav_data, 17, 2);
+                                        Array.Copy(BitConverter.GetBytes(navigationData.axisX), 0, nav_data, 19, 4);
+                                        Array.Copy(BitConverter.GetBytes(navigationData.axisY), 0, nav_data, 23, 4);
+                                        Array.Copy(BitConverter.GetBytes(navigationData.wheel), 0, nav_data, 27, 4);
+                                        Array.Copy(BitConverter.GetBytes(navigationData.throttle), 0, nav_data, 31, 4);
+
+
+                                        byte[] container_ship_nav_data = ecodroneBoat._teensyLibParser.SendConstructBuff(joy_command, nav_data);
+                                        
+                                        TeensyMessageContainer tmessage = new TeensyMessageContainer("NavData", container_ship_nav_data, IdClient);
+
+                                        StringBuilder sn = new StringBuilder();
+
+                                        foreach (byte b in container_ship_nav_data)
+                                        {
+                                            sn.Append(b + " ");
+                                        }
+                                        Debug.WriteLine("NAV DATA");
+                                        Debug.WriteLine(sn.ToString().Trim());
+                                        
+                                        //REACTIVATE
+                                        ecodroneBoat.teensySocketInstance.command_task_que.Add(tmessage);
+
+                                    }
+                                }
+
+                                
+                            }
+                            
                         } 
                     }
                     break;
@@ -503,22 +599,24 @@ public class EcoClient
 
                 if(uploadMissionData.pointslist.Count() > 0)
                 {
-                    int index_i = missionParam.wpStart;
+                    //int index_i = missionParam.wpStart;
                     int original_count = uploadMissionData.pointslist.Count;
 
                     for(int i=0; i < original_count; i++)
                     {
                         
-                        if (index_i > original_count - 1)
-                        {
-                            index_i = 0;
-                        }
+                        // if (index_i > original_count - 1)
+                        // {
+                        //     index_i = 0;
+                        // }
 
-                        UploadWaypoint uploadWaypoint = uploadMissionData.pointslist[index_i];
+                        UploadWaypoint uploadWaypoint = uploadMissionData.pointslist[i];
+                        //SantoriniSampietrini99!
+                        //2a00:6d42:1242:169a::1
 
                         WayPoint wayPoint = new WayPoint
                         {
-                            IndexWP = (ushort)index_i,
+                            IndexWP = (ushort)i,
                             Nmissione = missionParam.nMission,
                             Latitude = uploadWaypoint.lat,
                             Longitude = uploadWaypoint.lng,
@@ -530,7 +628,7 @@ public class EcoClient
                         };
 
                         waypoints.Add(wayPoint);
-                        index_i++;
+                        // index_i++;
                     }
                 }
 

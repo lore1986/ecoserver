@@ -22,15 +22,15 @@ public class EcodroneBoat
     public HttpListener _ecodroneBoatClienSocketListener;
     public EcodroneTeensyInstance teensySocketInstance {get; protected set;}
     public List<EcoClient> _boatclients = new List<EcoClient>();
-    public VideoTcpListener ecodroneVideo {get; protected set;}
+    public JetsonVideoSocketListener ecodroneVideo {get; protected set;}
     public IVideoBusService _videoBusService { get; set; } = new VideoBusService();
     public ISignalBusSocket signalBusSocket;
     public ITeensyMessageConstructParser _teensyLibParser { get; private set; }
     public readonly EcodroneMessagesContainers ecodroneMessagesContainers;
 
     public CancellationTokenSource src_cts_boat = new CancellationTokenSource();
-    public CancellationToken cts_boat {get; private set;}
-    public CancellationTokenSource src_cts_block_listening = new CancellationTokenSource();
+    // public CancellationToken cts_boat {get; private set;}
+    // public CancellationTokenSource src_cts_block_listening = new CancellationTokenSource();
     public CancellationToken cts_block_listening;
 
 
@@ -50,9 +50,11 @@ public class EcodroneBoat
         _ecodroneBoatClienSocketListener = new HttpListener();
         _ecodroneBoatClienSocketListener.Prefixes.Add($"http://localhost:{port}/interface/");// {_maskedid}/");
        
-        cts_block_listening = src_cts_block_listening.Token;
+        // cts_block_listening = src_cts_block_listening.Token;
        
-        ecodroneVideo = new VideoTcpListener(_videoBusService, portvideo);
+        ecodroneVideo = new JetsonVideoSocketListener(_videoBusService, portvideo, "jetson_id");
+
+        //REACTIVATE
         teensySocketInstance = new EcodroneTeensyInstance(this, maskedId);
        
     }
@@ -70,7 +72,8 @@ public class EcodroneBoat
             83, //STATE MANAGER
             77, //MISSION
             86, //VIDEO
-            72 //WAYPOINT
+            72, //WAYPOINT
+            78, //NAVIGATION
         };
         
         return bytes_admitted.Contains(byte_zero);
@@ -80,62 +83,72 @@ public class EcodroneBoat
     public void StartEcodroneBoatTasks()
     {
 
-       _ecodroneBoatClienSocketListener.Start();
-        _ecodroneBoatClienSocketListener.BeginGetContext(callBack_BoatListener, _ecodroneBoatClienSocketListener);
-        ecodroneVideo._jetsonClientListener.BeginAcceptTcpClient(new AsyncCallback(ecodroneVideo.OnClientConnect), ecodroneVideo._jetsonClientListener);
-        
+        _ecodroneBoatClienSocketListener.Start();
+
+        Task.Factory.StartNew(async () =>
+        {
+             await callBack_BoatListener();
+        },  TaskCreationOptions.LongRunning);
+
+
+        //REACTIVATE
+        Task.Factory.StartNew(() =>
+        {
+            ecodroneVideo.ConnectToJetsonVideoSocket();
+
+        }, ecodroneVideo.cts_read);
+               
     }
 
-    private async void callBack_BoatListener(IAsyncResult result)
+    private async Task callBack_BoatListener()
     {   
         
         try
         {
-            if(_ecodroneBoatClienSocketListener.IsListening && !cts_boat.IsCancellationRequested)
+            if(_ecodroneBoatClienSocketListener != null )
             {
-                HttpListener? listener = (HttpListener?)result.AsyncState;
                 
-                if(listener != null)
+                while(_ecodroneBoatClienSocketListener.IsListening)
                 {
-                    HttpListenerContext context = listener.EndGetContext(result);
-                    HttpListenerWebSocketContext websocket_context = await context.AcceptWebSocketAsync(null, new TimeSpan(1000));
+                    HttpListenerContext ctx = await _ecodroneBoatClienSocketListener.GetContextAsync();
+                    //here you can analyze request
+                    HttpListenerWebSocketContext websocket_context = await ctx.AcceptWebSocketAsync(null, new TimeSpan(1000));
                     
                     var buffer = new byte[1024 * 4];
                     await websocket_context.WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
-                    byte message_scope = buffer.First();
-
-                    if(message_scope == 83)
+                    if(websocket_context.WebSocket.State == WebSocketState.Open)
                     {
-                        EcoClient new_client = new EcoClient(this, websocket_context.WebSocket);
-                        _boatclients.Add(new_client);
-                    }else
+                        byte message_scope = buffer.First();
+
+                        if(message_scope == 83)
+                        {
+                            EcoClient new_client = new EcoClient(this, websocket_context.WebSocket);
+                            _boatclients.Add(new_client);
+                        }else
+                        {
+                            await websocket_context.WebSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, null, CancellationToken.None);
+                            websocket_context.WebSocket.Dispose();
+                        }
+                    }
+                    else
                     {
                         await websocket_context.WebSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, null, CancellationToken.None);
-                        websocket_context.WebSocket.Abort();
                         websocket_context.WebSocket.Dispose();
                     }
-                    
-                    //this is good but fix it
-                    // if(_boatclients.Count() == 0)
-                    // {
-                    //     RestartTeensyTalkSignal();
-                    // }
-
-                    await Task.Run(() =>listener.BeginGetContext(callBack_BoatListener, listener), cts_boat);
-
-                    
-
-                    
                 }
+
+                _ecodroneBoatClienSocketListener.Close();
             }
             
-        }
+        }        
         catch (ObjectDisposedException)
         {
             ///do nothing
             Debug.WriteLine("we manage this way object disposed exeption on close");
         }
+
+        Debug.WriteLine("we close here");
             
         
     }

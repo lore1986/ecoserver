@@ -32,29 +32,10 @@ public class EcodroneTeensyInstance
         command_task_que = new List<TeensyMessageContainer>();
         internal_task_que = new List<TeensyMessageContainer>();
         socketTask = Task.Run(StartTeensyTalk);
+
+        src_cts_teensy = new CancellationTokenSource();
+        cts_teensy = src_cts_teensy.Token;
     }
-
-    // private void GetCommandWriteChannel(SignalBusMessage channelData)
-    // {
-    //     if (channelData.data_message != null && channelData.data_message != "NNN" && channelData.message_id != "new_internal_data")
-    //     {
-    //         signalBusSocket.Publish(channelData);
-    //     }
-
-    //     if (channelData.data_command != null && channelData.needAnswer)
-    //     {
-    //         TeensyMessageContainer newMessageContainer = new TeensyMessageContainer(channelData.message_id, channelData.data_command, needPreparation: false);
-    //         command_task_que.Add(newMessageContainer);
-
-    //     }
-
-    // }
-
-    // private async Task TalkToTeensyAsync(TeensyMessageContainer m_cont)
-    // {
-     
-        
-    // }
 
     private Tuple<byte[], int> IsSubArray(byte[] mainArray, byte[] subArray)
     {
@@ -81,11 +62,22 @@ public class EcodroneTeensyInstance
             
         Debug.WriteLine("Teensy is connected");
 
-        while(!cts_teensy.IsCancellationRequested)
+        while(!cts_teensy.IsCancellationRequested && _teensySocket.Connected)
         {
             if(command_task_que.Count > 0)
             {
+                StringBuilder sb = new StringBuilder();
+                foreach (byte b in command_task_que[0].CommandId)
+                {
+                    sb.Append(b + " ");
+                }
+
+                Debug.WriteLine("Message DATA");
+                // Print the formatted string
+                Debug.WriteLine(sb.ToString().Trim());
+
                 await _networkStream.WriteAsync(command_task_que[0].CommandId, 0, command_task_que[0].CommandId.Length); 
+
         
                 byte[] dataread = new byte[1024*4];
                 int bytesRead = await _networkStream.ReadAsync(dataread);
@@ -98,11 +90,13 @@ public class EcodroneTeensyInstance
                     command_task_que.RemoveAt(0);
                 }else
                 {
-                    Debug.WriteLine($"Dirty sub string are you {Encoding.UTF8.GetString(dataread)}");
-                    Debug.WriteLine($"Dirty sub buffer are you {dataread}");
+                    command_task_que.RemoveAt(0);
+                    // Debug.WriteLine($"Dirty sub string are you {Encoding.UTF8.GetString(dataread)}");
+                    // Debug.WriteLine($"Dirty sub buffer are you {dataread}");
                 }
 
-            }else
+            }
+            else
             {
                 command_task_que = ecodroneBoat.ecodroneMessagesContainers.GenerateRequestFunct();
             }
@@ -112,18 +106,14 @@ public class EcodroneTeensyInstance
             
         }
 
-    
         _networkStream?.Close();
         _networkStream?.Dispose();
         _teensySocket.Close();
         _teensySocket.Dispose();
         
+        socketTask.Wait(cts_teensy);
         socketTask.Dispose();
 
-        Debug.WriteLine("Teensy not connected, restarting");
-        socketTask = Task.Run(RestartTeensyTalkSignal);
-
-       
     }
 
     public void RestartTeensyTalkSignal()
